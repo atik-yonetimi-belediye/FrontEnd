@@ -201,3 +201,64 @@ input, textarea, select, button {
     padding: 0 1rem;
   }
 }
+
+/* Leaflet Popup Global Styling (Theme Aware for Light & Dark Mode) */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius-md) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  color: var(--text-primary) !important;
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  color: var(--text-secondary) !important;
+  padding: 4px 6px 0 0 !important;
+}
+
+.leaflet-container a.leaflet-popup-close-button:hover {
+  color: var(--text-primary) !important;
+}
+
+.custom-popup .popup-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-primary);
+}
+
+.custom-popup .popup-title {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.custom-popup .popup-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.custom-popup .popup-mahalle,
+.custom-popup .popup-info {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+.custom-popup .popup-time {
+  margin: 4px 0 0 0;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+

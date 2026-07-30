@@ -417,10 +417,10 @@ const ComplaintForm = () => {
                         }}
                       >
                         <Popup className="custom-popup">
-                          <div style={{ color: '#111', backgroundColor: '#fff', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>
-                            <strong style={{ color: '#000' }}>{c.konteyner_kodu}</strong><br/>
-                            <span style={{ color: '#333', fontSize: '0.85rem' }}>{c.tur === 'geri_donusum' ? 'Geri Dönüşüm' : 'Katı Atık'}</span><br/>
-                            <small style={{ color: '#555' }}>{c.mahalle_ad} Mah.</small>
+                          <div className="popup-content" style={{ textAlign: 'center' }}>
+                            <strong className="popup-title">{c.konteyner_kodu}</strong><br/>
+                            <span className="popup-subtitle">{c.tur === 'geri_donusum' ? 'Geri Dönüşüm' : 'Katı Atık'}</span><br/>
+                            <small className="popup-info">{c.mahalle_ad} Mah.</small>
                           </div>
                         </Popup>
                       </Marker>

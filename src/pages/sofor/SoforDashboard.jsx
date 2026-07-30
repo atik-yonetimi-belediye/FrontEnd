@@ -175,9 +175,9 @@ const SoforDashboard = () => {
               k.latitude && k.longitude && (
                 <Marker key={k.id} position={[k.latitude, k.longitude]} icon={createIcon()}>
                   <Popup className="custom-popup">
-                    <div style={{ color: '#111', backgroundColor: '#fff', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>
-                      <strong style={{ color: '#000' }}>{k.konteyner_kodu}</strong><br/>
-                      <small style={{ color: '#555' }}>{k.mahalle_ad} Mah.</small>
+                    <div className="popup-content" style={{ textAlign: 'center' }}>
+                      <strong className="popup-title">{k.konteyner_kodu}</strong><br/>
+                      <small className="popup-subtitle">{k.mahalle_ad} Mah.</small>
                     </div>
                   </Popup>
                 </Marker>
@@ -187,9 +187,9 @@ const SoforDashboard = () => {
             {/* User (Driver) Location */}
             {userLocation && (
               <Marker position={userLocation} icon={createTruckIcon()}>
-                <Popup>
-                  <div style={{ color: '#111', padding: '5px' }}>
-                    <strong>Şu anki Konumunuz</strong>
+                <Popup className="custom-popup">
+                  <div className="popup-content">
+                    <strong className="popup-title">Şu anki Konumunuz</strong>
                   </div>
                 </Popup>
               </Marker>

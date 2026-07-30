@@ -150,11 +150,13 @@ const AdminMap = () => {
                   icon={createIcon(k.tur)}
                 >
                     <Popup className="custom-popup">
-                      <div className="popup-content" style={{color: '#333'}}>
-                        <strong style={{color: '#111'}}>{k.konteyner_kodu}</strong>
-                        <span className="popup-badge" style={{color: '#fff', backgroundColor: k.tur === 'geri_donusum' ? '#10b981' : '#3b82f6', padding: '1px 5px', borderRadius: '3px', marginLeft: '5px', fontSize: '0.75rem'}}>{k.tur === 'geri_donusum' ? 'Geri Dönüşüm' : 'Katı Atık'}</span>
-                        <p className="popup-mahalle" style={{color: '#555', margin: '5px 0 0 0'}}>{k.mahalle_ad} Mahallesi</p>
-                        <p style={{margin: '5px 0 0 0', fontSize: '0.85rem', color: '#111'}}>
+                      <div className="popup-content">
+                        <div>
+                          <strong className="popup-title">{k.konteyner_kodu}</strong>
+                          <span className="popup-badge" style={{color: '#fff', backgroundColor: k.tur === 'geri_donusum' ? '#10b981' : '#3b82f6', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px', fontSize: '0.75rem', fontWeight: 600}}>{k.tur === 'geri_donusum' ? 'Geri Dönüşüm' : 'Katı Atık'}</span>
+                        </div>
+                        <p className="popup-mahalle">{k.mahalle_ad} Mahallesi</p>
+                        <p className="popup-time">
                           ⏰ <strong>Son Toplanma:</strong><br/>
                           {k.son_toplanma_tarihi ? new Date(k.son_toplanma_tarihi).toLocaleString('tr-TR', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'}) : 'Hiç toplanmadı'}
                         </p>
@@ -173,11 +175,11 @@ const AdminMap = () => {
                   icon={createTruckIcon()}
                 >
                   <Popup className="custom-popup">
-                    <div className="popup-content" style={{color: '#333', textAlign: 'center'}}>
-                      <strong style={{color: '#111'}}>{a.plaka}</strong><br/>
-                      <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)'}}>{a.arac_turu === 'geri_donusum' ? 'Geri Dönüşüm Kamyonu' : 'Katı Atık Kamyonu'}</span><br/>
-                      <small style={{color: '#555'}}>Bölge: {a.mahalle_ad || 'Atanmamış'} Mah.</small><br/>
-                      <small style={{color: '#555'}}>Çavuş: {a.cavus_ad_soyad || 'Bilinmiyor'}</small>
+                    <div className="popup-content" style={{textAlign: 'center'}}>
+                      <strong className="popup-title">{a.plaka}</strong><br/>
+                      <span className="popup-subtitle">{a.arac_turu === 'geri_donusum' ? 'Geri Dönüşüm Kamyonu' : 'Katı Atık Kamyonu'}</span><br/>
+                      <small className="popup-info">Bölge: {a.mahalle_ad || 'Atanmamış'} Mah.</small><br/>
+                      <small className="popup-info">Çavuş: {a.cavus_ad_soyad || 'Bilinmiyor'}</small>
                     </div>
                   </Popup>
                 </Marker>
