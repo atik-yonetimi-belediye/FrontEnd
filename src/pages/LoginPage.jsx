@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Lock, Building, Truck, ShieldAlert, ArrowLeft, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { User, Building, Truck, ShieldAlert, ArrowLeft, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import api from '../services/api';
 import './LoginPage.css';
 
@@ -155,8 +155,8 @@ const LoginPage = () => {
       return;
     }
 
-    if (registerData.sifre.length < 6) {
-      setError('Şifre en az 6 karakter olmalıdır.');
+    if (registerData.sifre.length < 8) {
+      setError('Şifre en az 8 karakter olmalıdır.');
       return;
     }
 
@@ -360,7 +360,7 @@ const LoginPage = () => {
                 <input 
                   type={showPassword ? "text" : "password"}
                   name="sifre"
-                  placeholder="Şifreniz (En az 6 karakter)"
+                  placeholder="Şifreniz (En az 8 karakter)"
                   value={registerData.sifre}
                   onChange={handleRegisterInputChange}
                   className="custom-input"

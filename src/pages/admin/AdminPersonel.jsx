@@ -37,8 +37,8 @@ const AdminPersonel = () => {
     setLoading(true);
     try {
       const [cavRes, sofRes] = await Promise.all([
-        api.get('/admin/cavuslar'),
-        api.get('/admin/soforler')
+        api.get('/admin/cavuslar', { params: { limit: 200 } }),
+        api.get('/admin/soforler', { params: { limit: 200 } })
       ]);
       
       if (cavRes.data.success) {

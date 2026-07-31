@@ -4,6 +4,7 @@ import L from 'leaflet';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
 import Button from '../../components/Button';
+import ConfirmModal from '../../components/ConfirmModal';
 import { MapPin, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import './SoforDashboard.css';
@@ -29,6 +30,7 @@ const createTruckIcon = () => {
 const SoforDashboard = () => {
   const [konteynerler, setKonteynerler] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [userLocation, setUserLocation] = useState(null);
   
   // Modal state
@@ -60,17 +62,14 @@ const SoforDashboard = () => {
 
   const fetchKonteynerler = async () => {
     try {
-      const res = await api.get('/sofor/konteynerler');
+      const res = await api.get('/sofor/konteynerler', { params: { limit: 200 } });
       if (res.data.success) {
         setKonteynerler(res.data.data);
       }
-    } catch (err) {
+    } catch {
       console.error("Konteynerler getirilemedi", err);
-      // Fallback
-      setKonteynerler([
-        { id: 1, konteyner_kodu: 'KNT-0001', mahalle_ad: 'Merkez', tur: 'kati_atik', latitude: 37.5858, longitude: 36.9145 },
-        { id: 2, konteyner_kodu: 'KNT-0002', mahalle_ad: 'Tekerek', tur: 'geri_donusum', latitude: 37.5860, longitude: 36.9150 },
-      ]);
+      setKonteynerler([]);
+      setLoadError('Görev listesi alınamadı. Bağlantınızı kontrol edip yeniden deneyin.');
     } finally {
       setLoading(false);
     }
@@ -83,7 +82,7 @@ const SoforDashboard = () => {
         durum: 'toplandi'
       });
       setKonteynerler(prev => prev.filter(k => k.id !== id));
-    } catch (err) {
+    } catch {
       alert("İşlem başarısız oldu.");
     }
   };
@@ -113,7 +112,7 @@ const SoforDashboard = () => {
       });
       setKonteynerler(prev => prev.filter(k => k.id !== selectedKonteyner.id));
       setSkipModalOpen(false);
-    } catch (err) {
+    } catch {
       alert("İşlem başarısız oldu.");
     }
   };
@@ -156,6 +155,14 @@ const SoforDashboard = () => {
   return (
     <DashboardLayout title="Günlük Rota">
       <div className="sofor-dashboard">
+        {loadError && (
+          <div className="error-banner" role="alert">
+            {loadError}
+            <Button variant="outline" size="sm" onClick={fetchKonteynerler}>
+              Yeniden Dene
+            </Button>
+          </div>
+        )}
         <div className="dashboard-header-alert">
           <AlertTriangle size={20} /> Lütfen sıradaki konteynerleri ziyaret edin.
         </div>
@@ -235,10 +242,14 @@ const SoforDashboard = () => {
       </div>
 
       {/* Skip Modal */}
-      {skipModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content glass-panel animate-fade-in">
-            <h3>{selectedKonteyner?.konteyner_kodu} Neden Atlandı?</h3>
+      <ConfirmModal
+        isOpen={skipModalOpen}
+        title={`${selectedKonteyner?.konteyner_kodu || 'Konteyner'} Neden Atlandı?`}
+        confirmText="Atlandı Olarak Kaydet"
+        variant="danger"
+        onConfirm={submitSkip}
+        onCancel={() => setSkipModalOpen(false)}
+      >
             <select 
               className="custom-select mt-4" 
               value={skipReason} 
@@ -269,14 +280,7 @@ const SoforDashboard = () => {
                 onChange={e => setOtherReason(e.target.value)}
               />
             )}
-            
-            <div className="modal-actions mt-4">
-              <Button variant="ghost" onClick={() => setSkipModalOpen(false)}>İptal</Button>
-              <Button variant="danger" onClick={submitSkip}>Atlandı Olarak Kaydet</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      </ConfirmModal>
     </DashboardLayout>
   );
 };

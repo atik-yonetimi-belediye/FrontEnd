@@ -16,9 +16,9 @@ const CavusDashboard = () => {
       try {
         const [profileRes, containersRes, vehiclesRes, driversRes] = await Promise.all([
           api.get('/cavus/me'),
-          api.get('/cavus/konteynerler'),
-          api.get('/cavus/araclar'),
-          api.get('/cavus/soforler')
+          api.get('/cavus/konteynerler', { params: { limit: 200 } }),
+          api.get('/cavus/araclar', { params: { limit: 200 } }),
+          api.get('/cavus/soforler', { params: { limit: 200 } })
         ]);
 
         if (profileRes.data.success) {

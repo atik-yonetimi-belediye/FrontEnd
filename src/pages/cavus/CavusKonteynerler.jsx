@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import Button from '../../components/Button';
-import Input from '../../components/Input';
 import ConfirmModal from '../../components/ConfirmModal';
-import { MapPin, Navigation, Clock, Trash2, Eye } from 'lucide-react';
+import { MapPin, Navigation, Clock, Trash2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import './CavusKonteynerler.css';
 
@@ -55,6 +54,7 @@ const CavusKonteynerler = () => {
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState([]);
   const [selectedKodu, setSelectedKodu] = useState('');
+  const historyDialogRef = useRef(null);
 
   // Delete Confirm Modal
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -69,9 +69,23 @@ const CavusKonteynerler = () => {
     fetchKonteynerler();
   }, []);
 
+  useEffect(() => {
+    if (!historyModalOpen) return undefined;
+    const previousActiveElement = document.activeElement;
+    historyDialogRef.current?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setHistoryModalOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previousActiveElement?.focus?.();
+    };
+  }, [historyModalOpen]);
+
   const fetchKonteynerler = async () => {
     try {
-      const res = await api.get('/cavus/konteynerler');
+      const res = await api.get('/cavus/konteynerler', { params: { limit: 200 } });
       if (res.data.success) {
         setKonteynerler(res.data.data);
       }
@@ -89,7 +103,7 @@ const CavusKonteynerler = () => {
         setPosition(newPos);
         setMapCenter([pos.coords.latitude, pos.coords.longitude]);
         setMapZoom(16);
-      }, (err) => {
+      }, () => {
         alert("Konum alınamadı. Lütfen tarayıcı izinlerini kontrol edin.");
       });
     } else {
@@ -101,11 +115,8 @@ const CavusKonteynerler = () => {
     if (!position) return alert("Lütfen haritadan konum seçin veya GPS butonunu kullanın.");
     
     setIsAdding(true);
-    const randomCode = `KNT-${Math.floor(1000 + Math.random() * 9000)}`;
-    
     try {
       const res = await api.post('/cavus/konteynerler', {
-        konteyner_kodu: randomCode,
         tur,
         latitude: position.lat,
         longitude: position.lng
@@ -134,7 +145,7 @@ const CavusKonteynerler = () => {
       setKonteynerler(prev => prev.filter(k => k.id !== targetContainerId));
       setDeleteConfirmOpen(false);
       setTargetContainerId(null);
-    } catch (err) {
+    } catch {
       alert("İşlem başarısız.");
     }
   };
@@ -142,13 +153,13 @@ const CavusKonteynerler = () => {
   const handleViewHistory = async (konteynerId, kodu) => {
     setSelectedKodu(kodu);
     try {
-      const res = await api.get('/cavus/toplama-kayitlari');
+      const res = await api.get('/cavus/toplama-kayitlari', { params: { limit: 200 } });
       if (res.data.success) {
         const records = res.data.data.filter(r => String(r.konteyner_id) === String(konteynerId));
         setSelectedHistory(records);
         setHistoryModalOpen(true);
       }
-    } catch (err) {
+    } catch {
       alert("Toplama geçmişi yüklenemedi.");
     }
   };
@@ -316,8 +327,17 @@ const CavusKonteynerler = () => {
           }} 
           onClick={() => setHistoryModalOpen(false)}
         >
-          <div className="glass-panel animate-fade-in" style={{ maxWidth: '600px', width: '95%', padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginTop: 0 }}>{selectedKodu} Toplama Geçmişi</h3>
+          <div
+            ref={historyDialogRef}
+            className="glass-panel animate-fade-in"
+            style={{ maxWidth: '600px', width: '95%', padding: '1.5rem', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)' }}
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="history-dialog-title"
+            tabIndex={-1}
+          >
+            <h3 id="history-dialog-title" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginTop: 0 }}>{selectedKodu} Toplama Geçmişi</h3>
             <div style={{ maxHeight: '300px', overflowY: 'auto', textAlign: 'left', marginTop: '1rem' }}>
               {selectedHistory.length === 0 ? (
                 <p className="text-muted text-center" style={{ padding: '1.5rem 0' }}>Toplama kaydı bulunmuyor.</p>

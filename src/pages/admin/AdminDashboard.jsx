@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
-import { Users, Truck, Map, AlertTriangle, TrendingUp, Clock, CheckCircle2, Building, RefreshCw } from 'lucide-react';
+import { Users, Truck, Map, AlertTriangle, TrendingUp, Clock, CheckCircle2, Building } from 'lucide-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import './AdminDashboard.css';
 
@@ -48,7 +48,6 @@ const AdminDashboard = () => {
 
   const {
     konteynerler,
-    araclar,
     cavuslar,
     soforler,
     sirketler,
@@ -68,13 +67,21 @@ const AdminDashboard = () => {
     { name: 'Geri Dönüşüm', Adet: parseInt(konteynerler.geri_donusum_konteyner || 0) }
   ];
 
-  // Dummy Activity Timeline Data
-  const recentActivities = [
-    { id: 1, type: 'collection', text: 'Deniz Kılınç (46 XYZ 789) KNT-0002 konteynerini topladı.', time: '10 dakika önce', icon: <CheckCircle2 size={18} style={{ color: '#10b981' }} /> },
-    { id: 2, type: 'complaint', text: 'Haydarbey Mah. için yeni şikayet bildirildi.', time: '25 dakika önce', icon: <AlertTriangle size={18} style={{ color: '#ef4444' }} /> },
-    { id: 3, type: 'company', text: 'Çevik Geri Dönüşüm A.Ş. 250 kg kağıt alma talebi açtı.', time: '1 saat önce', icon: <Building size={18} style={{ color: '#3b82f6' }} /> },
-    { id: 4, type: 'driver', text: 'Berke Karaman göreve başladı (Araç: 46 ABC 123).', time: '2 saat önce', icon: <Truck size={18} style={{ color: '#f59e0b' }} /> }
-  ];
+  const totalPersonnel = Number(cavuslar.toplam_cavus) + Number(soforler.toplam_sofor);
+  const activePersonnel = Number(cavuslar.aktif_cavus) + Number(soforler.aktif_sofor);
+  const personnelRate = totalPersonnel ? Math.round((activePersonnel / totalPersonnel) * 100) : 0;
+  const containerRate = Number(konteynerler.toplam_konteyner)
+    ? Math.round((Number(konteynerler.aktif_konteyner) / Number(konteynerler.toplam_konteyner)) * 100)
+    : 0;
+  const complaintRate = Number(sikayetler.toplam_sikayet)
+    ? Math.round((Number(sikayetler.cozulen_sikayet) / Number(sikayetler.toplam_sikayet)) * 100)
+    : 0;
+
+  const getActivityIcon = (type) => {
+    if (type === 'collection') return <CheckCircle2 size={18} style={{ color: '#10b981' }} />;
+    if (type === 'complaint') return <AlertTriangle size={18} style={{ color: '#ef4444' }} />;
+    return <Building size={18} style={{ color: '#3b82f6' }} />;
+  };
 
   return (
     <DashboardLayout title="Yönetici Özeti">
@@ -88,7 +95,7 @@ const AdminDashboard = () => {
           <div className="stat-details">
             <h3>Personel Kadrosu</h3>
             <p>{cavuslar.aktif_cavus || 0} Çavuş, {soforler.aktif_sofor || 0} Şoför</p>
-            <span className="trend-badge up"><TrendingUp size={12} /> %100 Aktif Kadro</span>
+            <span className="trend-badge up"><TrendingUp size={12} /> %{personnelRate} Aktif Kadro</span>
           </div>
         </div>
 
@@ -101,7 +108,7 @@ const AdminDashboard = () => {
           <div className="stat-details">
             <h3>Saha Konteynerleri</h3>
             <p>{konteynerler.toplam_konteyner || 0} Toplam ({konteynerler.aktif_konteyner || 0} Aktif)</p>
-            <span className="trend-badge up"><TrendingUp size={12} /> %98.4 Operasyonel</span>
+            <span className="trend-badge up"><TrendingUp size={12} /> %{containerRate} Aktif</span>
           </div>
         </div>
 
@@ -129,7 +136,7 @@ const AdminDashboard = () => {
           <div className="stat-details">
             <h3>Şikayet Durumu</h3>
             <p>{sikayetler.toplam_sikayet || 0} Toplam ({sikayetler.bekleyen_sikayet || 0} Bekleyen)</p>
-            <span className="trend-badge up"><TrendingUp size={12} /> %92 Çözüm Oranı</span>
+            <span className="trend-badge up"><TrendingUp size={12} /> %{complaintRate} Çözüm Oranı</span>
           </div>
         </div>
       </div>
@@ -186,22 +193,27 @@ const AdminDashboard = () => {
 
       </div>
 
-      {/* Live Activity Stream Timeline */}
+      {/* Recent Activity Timeline */}
       <div className="timeline-section glass-panel p-4" style={{ padding: '1.25rem', marginTop: '1.5rem' }}>
         <h3 style={{ fontSize: '1.05rem', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Clock size={18} style={{ color: 'var(--primary-color)' }} /> Canlı Saha Hareketleri (Activity Stream)
+          <Clock size={18} style={{ color: 'var(--primary-color)' }} /> Son Sistem Hareketleri
         </h3>
 
         <div className="timeline-list">
-          {recentActivities.map(act => (
-            <div key={act.id} className="timeline-item">
-              <div className="timeline-icon">{act.icon}</div>
+          {(dashboardData.recent_activities || []).map(act => (
+            <div key={`${act.type}-${act.id}`} className="timeline-item">
+              <div className="timeline-icon">{getActivityIcon(act.type)}</div>
               <div className="timeline-content">
-                <p className="timeline-title">{act.text}</p>
-                <span className="timeline-time">{act.time}</span>
+                <p className="timeline-title">{act.description}</p>
+                <span className="timeline-time">
+                  {new Date(act.event_time).toLocaleString('tr-TR')}
+                </span>
               </div>
             </div>
           ))}
+          {(dashboardData.recent_activities || []).length === 0 && (
+            <p className="text-muted">Henüz sistem hareketi bulunmuyor.</p>
+          )}
         </div>
       </div>
     </DashboardLayout>

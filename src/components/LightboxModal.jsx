@@ -1,9 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import './LightboxModal.css';
 
 const LightboxModal = ({ images = [], initialIndex = 0, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+      if (event.key === 'ArrowLeft') {
+        setCurrentIndex(prev => (prev === 0 ? images.length - 1 : prev - 1));
+      }
+      if (event.key === 'ArrowRight') {
+        setCurrentIndex(prev => (prev === images.length - 1 ? 0 : prev + 1));
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [images.length, onClose]);
 
   if (!images || images.length === 0) return null;
 
@@ -18,7 +32,13 @@ const LightboxModal = ({ images = [], initialIndex = 0, onClose }) => {
   };
 
   return (
-    <div className="lightbox-backdrop" onClick={onClose}>
+    <div
+      className="lightbox-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Fotoğraf görüntüleyici"
+    >
       <div className="lightbox-header">
         <button className="lightbox-close-btn" onClick={onClose} title="Kapat">
           <X size={24} />

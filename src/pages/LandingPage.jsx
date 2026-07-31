@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Leaf, AlertTriangle, LogIn, Recycle, MapPin, Sun, Moon, Trees, Zap, Award, Compass, Navigation } from 'lucide-react';
 import Button from '../components/Button';
@@ -9,9 +9,17 @@ const LandingPage = () => {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [containers, setContainers] = useState([]);
   const [locatorOpen, setLocatorOpen] = useState(false);
-  const [userCoords, setUserCoords] = useState(null);
   const [nearestContainer, setNearestContainer] = useState(null);
   const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const locatorDialogRef = useRef(null);
+  const [stats, setStats] = useState({
+    aktif_konteyner: 0,
+    bugun_toplanan: 0,
+    cozulen_sikayet: 0,
+    tamamlanan_geri_donusum_talebi: 0,
+    tamamlanan_tahmini_miktar: 0
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -19,18 +27,34 @@ const LandingPage = () => {
   }, [theme]);
 
   useEffect(() => {
-    const fetchContainers = async () => {
+    const fetchPageData = async () => {
       try {
-        const res = await api.get('/konteynerler?aktif_mi=true');
-        if (res.data.success) {
-          setContainers(res.data.data);
-        }
+        const [containerResponse, statsResponse] = await Promise.all([
+          api.get('/konteynerler', { params: { aktif_mi: true, limit: 200 } }),
+          api.get('/public/stats')
+        ]);
+        if (containerResponse.data.success) setContainers(containerResponse.data.data);
+        if (statsResponse.data.success) setStats(statsResponse.data.data);
       } catch (err) {
-        console.error("Konteynerler alınamadı", err);
+        console.error("Ana sayfa verileri alınamadı", err);
       }
     };
-    fetchContainers();
+    fetchPageData();
   }, []);
+
+  useEffect(() => {
+    if (!locatorOpen) return undefined;
+    const previousActiveElement = document.activeElement;
+    locatorDialogRef.current?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setLocatorOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previousActiveElement?.focus?.();
+    };
+  }, [locatorOpen]);
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
@@ -39,13 +63,14 @@ const LandingPage = () => {
   const handleFindNearestContainer = () => {
     setLocatorOpen(true);
     setLocating(true);
+    setLocationError('');
+    setNearestContainer(null);
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          setUserCoords({ lat, lng });
 
           // Calculate nearest container using Haversine formula
           if (containers.length > 0) {
@@ -76,17 +101,14 @@ const LandingPage = () => {
           setLocating(false);
         },
         () => {
-          // Fallback coords (Haydarbey Onikişubat)
-          const fallbackLat = 37.5858;
-          const fallbackLng = 36.9145;
-          setUserCoords({ lat: fallbackLat, lng: fallbackLng });
-          if (containers.length > 0) {
-            setNearestContainer({ ...containers[0], distanceKm: "0.35" });
-          }
+          setLocationError(
+            'Konum izni alınamadı. Tarayıcı ayarlarından konum izni verip yeniden deneyin.'
+          );
           setLocating(false);
         }
       );
     } else {
+      setLocationError('Tarayıcınız konum özelliğini desteklemiyor.');
       setLocating(false);
     }
   };
@@ -157,32 +179,34 @@ const LandingPage = () => {
             <div className="impact-icon" style={{ color: '#10b981', display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
               <Recycle size={36} />
             </div>
-            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '0.25rem 0', color: 'var(--text-primary)' }}>12.450 kg</h3>
-            <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Geri Dönüştürülen Atık</p>
+            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '0.25rem 0', color: 'var(--text-primary)' }}>
+              {stats.tamamlanan_tahmini_miktar.toLocaleString('tr-TR')} kg
+            </h3>
+            <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Tamamlanan Tahmini Geri Dönüşüm</p>
           </div>
 
           <div className="impact-card glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
             <div className="impact-icon" style={{ color: '#059669', display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
               <Trees size={36} />
             </div>
-            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '0.25rem 0', color: 'var(--text-primary)' }}>142 Ağaç</h3>
-            <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Kurtarılan Orman Alanı</p>
+            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '0.25rem 0', color: 'var(--text-primary)' }}>{stats.aktif_konteyner}</h3>
+            <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Aktif Konteyner</p>
           </div>
 
           <div className="impact-card glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
             <div className="impact-icon" style={{ color: '#3b82f6', display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
               <Award size={36} />
             </div>
-            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '0.25rem 0', color: 'var(--text-primary)' }}>%98.4</h3>
-            <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Zamanında Toplama Başarısı</p>
+            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '0.25rem 0', color: 'var(--text-primary)' }}>{stats.cozulen_sikayet}</h3>
+            <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Çözülen Şikâyet</p>
           </div>
 
           <div className="impact-card glass-panel" style={{ padding: '1.5rem', textAlign: 'center' }}>
             <div className="impact-icon" style={{ color: '#f59e0b', display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
               <Zap size={36} />
             </div>
-            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '0.25rem 0', color: 'var(--text-primary)' }}>1.200 kW/h</h3>
-            <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Üretilen Temiz Enerji</p>
+            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '0.25rem 0', color: 'var(--text-primary)' }}>{stats.bugun_toplanan}</h3>
+            <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Bugün Toplanan Konteyner</p>
           </div>
         </div>
       </section>
@@ -192,12 +216,12 @@ const LandingPage = () => {
         <div className="feature-card">
           <div className="feature-icon-wrapper"><MapPin size={24}/></div>
           <h3>Konum Bazlı Takip</h3>
-          <p>Tüm konteynerler harita üzerinden anlık takip edilmektedir.</p>
+          <p>Aktif konteynerlerin kayıtlı konumları harita üzerinde görüntülenir.</p>
         </div>
         <div className="feature-card">
           <div className="feature-icon-wrapper"><AlertTriangle size={24}/></div>
           <h3>Hızlı Çözüm</h3>
-          <p>Şikayetleriniz anında ilgili saha çavuşlarına iletilir.</p>
+          <p>Şikâyetleriniz belediye yönetim ekranına güvenli şekilde iletilir.</p>
         </div>
         <div className="feature-card">
           <div className="feature-icon-wrapper"><Recycle size={24}/></div>
@@ -209,13 +233,27 @@ const LandingPage = () => {
       {/* Nearest Container Modal */}
       {locatorOpen && (
         <div className="modal-backdrop" onClick={() => setLocatorOpen(false)}>
-          <div className="modal-window animate-fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+          <div
+            ref={locatorDialogRef}
+            className="modal-window animate-fade-in"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '480px' }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="locator-dialog-title"
+            tabIndex={-1}
+          >
+            <h3 id="locator-dialog-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
               <Compass size={24} style={{ color: 'var(--primary-color)' }} /> En Yakın Konteyner
             </h3>
             
             {locating ? (
               <p className="py-4">Konumunuz ve en yakın konteyner tespiti yapılıyor...</p>
+            ) : locationError ? (
+              <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                <p className="text-danger">{locationError}</p>
+                <Button variant="outline" onClick={() => setLocatorOpen(false)}>Kapat</Button>
+              </div>
             ) : nearestContainer ? (
               <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                 <div className="glass-panel p-3 mb-3" style={{ padding: '1rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px' }}>
@@ -225,7 +263,7 @@ const LandingPage = () => {
                     Tür: {nearestContainer.tur === 'geri_donusum' ? '♻️ Geri Dönüşüm' : '🗑️ Katı Atık (Çöp)'}
                   </p>
                   <div style={{ marginTop: '0.75rem', fontWeight: 700, color: 'var(--success-color)' }}>
-                    Aralıktaki Mesafe: ~{nearestContainer.distanceKm || '0.4'} km
+                    Aralıktaki Mesafe: ~{nearestContainer.distanceKm} km
                   </div>
                 </div>
 

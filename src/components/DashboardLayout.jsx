@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Home, Settings, Map, FileText, Users, Truck, Sun, Moon, Recycle, Menu, X } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import Button from './Button';
+import { useAuth } from '../context/useAuth';
+import ConfirmModal from './ConfirmModal';
 import './DashboardLayout.css';
 
 const DashboardLayout = ({ children, title }) => {
@@ -28,8 +28,8 @@ const DashboardLayout = ({ children, title }) => {
     setTheme(theme === 'light' ? 'dark' : 'light');
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
@@ -38,7 +38,7 @@ const DashboardLayout = ({ children, title }) => {
       case 'admin':
         return [
           { name: 'Özet', path: '/admin', icon: <Home size={20} /> },
-          { name: 'Canlı Harita', path: '/admin/harita', icon: <Map size={20} /> },
+          { name: 'Konteyner Haritası', path: '/admin/harita', icon: <Map size={20} /> },
           { name: 'Şikayetler', path: '/admin/sikayetler', icon: <FileText size={20} /> },
           { name: 'Şirket Onayları', path: '/admin/sirketler', icon: <Settings size={20} /> },
           { name: 'Personel', path: '/admin/personel', icon: <Users size={20} /> },
@@ -136,18 +136,15 @@ const DashboardLayout = ({ children, title }) => {
       </main>
 
       {/* Logout Confirmation Modal */}
-      {logoutConfirmOpen && (
-        <div className="confirm-modal-backdrop" onClick={() => setLogoutConfirmOpen(false)}>
-          <div className="confirm-modal-window animate-fade-in" onClick={e => e.stopPropagation()}>
-            <h3>Oturumu Kapat</h3>
-            <p>Sistemden çıkış yapmak istediğinize emin misiniz?</p>
-            <div className="confirm-modal-actions">
-              <Button variant="outline" onClick={() => setLogoutConfirmOpen(false)}>İptal</Button>
-              <Button variant="danger" onClick={handleLogout}>Çıkış Yap</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={logoutConfirmOpen}
+        title="Oturumu Kapat"
+        message="Sistemden çıkış yapmak istediğinize emin misiniz?"
+        confirmText="Çıkış Yap"
+        variant="danger"
+        onConfirm={handleLogout}
+        onCancel={() => setLogoutConfirmOpen(false)}
+      />
     </div>
   );
 };

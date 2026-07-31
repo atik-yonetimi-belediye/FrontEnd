@@ -17,15 +17,6 @@ const createIcon = (type) => {
   });
 };
 
-const createTruckIcon = () => {
-  return L.divIcon({
-    className: 'custom-leaflet-icon',
-    html: `<div class="custom-truck-pulse">🚛</div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
-  });
-};
-
 const MAP_TILES = {
   voyager: {
     url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
@@ -43,7 +34,6 @@ const MAP_TILES = {
 
 const AdminMap = () => {
   const [konteynerler, setKonteynerler] = useState([]);
-  const [araclar, setAraclar] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mapStyle, setMapStyle] = useState('voyager'); // 'voyager' | 'satellite' | 'dark'
 
@@ -53,38 +43,14 @@ const AdminMap = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [kontRes, aracRes] = await Promise.all([
-          api.get('/konteynerler?aktif_mi=true'),
-          api.get('/admin/araclar?aktif_mi=true')
-        ]);
+        const kontRes = await api.get('/konteynerler', {
+          params: { aktif_mi: true, limit: 200 }
+        });
         
         if (kontRes.data.success) {
           setKonteynerler(kontRes.data.data);
         }
         
-        if (aracRes.data.success) {
-          const simulatedTrucks = aracRes.data.data.map((arac, idx) => {
-            const containersInMahalle = kontRes.data.data.filter(c => c.mahalle_ad === arac.mahalle_ad);
-            let baseLat = 37.5858;
-            let baseLng = 36.9145;
-            
-            if (containersInMahalle.length > 0) {
-              const randomContainer = containersInMahalle[idx % containersInMahalle.length];
-              baseLat = parseFloat(randomContainer.latitude);
-              baseLng = parseFloat(randomContainer.longitude);
-            }
-            
-            const offsetLat = (Math.sin(idx * 45) * 0.001) + 0.0005;
-            const offsetLng = (Math.cos(idx * 45) * 0.001) + 0.0005;
-
-            return {
-              ...arac,
-              latitude: baseLat + offsetLat,
-              longitude: baseLng + offsetLng
-            };
-          });
-          setAraclar(simulatedTrucks);
-        }
       } catch (err) {
         console.error("Harita verisi yüklenemedi", err);
       } finally {
@@ -95,7 +61,7 @@ const AdminMap = () => {
   }, []);
 
   return (
-    <DashboardLayout title="Canlı Filo & Konteyner Haritası">
+    <DashboardLayout title="Konteyner Haritası">
       <div className="admin-map-container glass-panel">
         
         {/* Tile Layer Switcher */}
@@ -127,9 +93,7 @@ const AdminMap = () => {
           <div className="legend-item">
             <span className="legend-color" style={{backgroundColor: '#10b981'}}></span> Geri Dönüşüm Konteyneri
           </div>
-          <div className="legend-item" style={{display: 'flex', alignItems: 'center', gap: '0.25rem'}}>
-            <span style={{fontSize: '14px'}}>🚛</span> Aktif Kamyonlar (Canlı Radar)
-          </div>
+          <div className="legend-item">Araç konum takibi henüz etkin değil.</div>
         </div>
         
         {loading ? (
@@ -162,26 +126,6 @@ const AdminMap = () => {
                         </p>
                       </div>
                     </Popup>
-                </Marker>
-              )
-            ))}
-
-            {/* Trucks */}
-            {araclar.map(a => (
-              a.latitude && a.longitude && (
-                <Marker 
-                  key={`a-${a.id}`} 
-                  position={[a.latitude, a.longitude]}
-                  icon={createTruckIcon()}
-                >
-                  <Popup className="custom-popup">
-                    <div className="popup-content" style={{textAlign: 'center'}}>
-                      <strong className="popup-title">{a.plaka}</strong><br/>
-                      <span className="popup-subtitle">{a.arac_turu === 'geri_donusum' ? 'Geri Dönüşüm Kamyonu' : 'Katı Atık Kamyonu'}</span><br/>
-                      <small className="popup-info">Bölge: {a.mahalle_ad || 'Atanmamış'} Mah.</small><br/>
-                      <small className="popup-info">Çavuş: {a.cavus_ad_soyad || 'Bilinmiyor'}</small>
-                    </div>
-                  </Popup>
                 </Marker>
               )
             ))}

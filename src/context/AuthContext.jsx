@@ -1,29 +1,34 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-
-const AuthContext = createContext();
+import AuthContext from './authContextStore';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
-
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      setToken(storedToken);
-    }
-    setLoading(false);
-
-    // Listen to 401 errors from axios
+    let active = true;
     const handleAuthError = () => {
-      logout();
+      if (active) setUser(null);
     };
     window.addEventListener('auth-error', handleAuthError);
-    return () => window.removeEventListener('auth-error', handleAuthError);
+
+    api.get('/auth/session')
+      .then((response) => {
+        const sessionUser = response.data?.data?.user;
+        if (active && sessionUser?.role) setUser(sessionUser);
+      })
+      .catch(() => {
+        if (active) setUser(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+      window.removeEventListener('auth-error', handleAuthError);
+    };
   }, []);
 
   const login = async (role, credentials) => {
@@ -31,14 +36,12 @@ export const AuthProvider = ({ children }) => {
       // role can be: 'admin', 'cavus', 'sofor', 'sirket'
       const response = await api.post(`/auth/${role}/login`, credentials);
       if (response.data.success) {
-        const { token: newToken, user: newUser } = response.data.data;
-        // Inject role manually since it's used for routing
-        newUser.role = role;
+        const { user: newUser } = response.data.data;
+        if (newUser.role !== role) {
+          throw new Error('Sunucu rolü ile istenen rol eşleşmiyor.');
+        }
         
         setUser(newUser);
-        setToken(newToken);
-        localStorage.setItem('user', JSON.stringify(newUser));
-        localStorage.setItem('token', newToken);
         return { success: true };
       }
     } catch (error) {
@@ -49,18 +52,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } finally {
+      setUser(null);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {!loading && children}
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => useContext(AuthContext);

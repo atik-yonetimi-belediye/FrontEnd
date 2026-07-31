@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
 import Button from '../../components/Button';
 import ConfirmModal from '../../components/ConfirmModal';
-import { Building, CheckCircle, XCircle, Clock, Search, ShieldCheck } from 'lucide-react';
+import { Building, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
 import './AdminSirketler.css';
 
 const AdminSirketler = () => {
@@ -23,7 +23,7 @@ const AdminSirketler = () => {
 
   const fetchSirketler = async () => {
     try {
-      const res = await api.get('/admin/sirketler');
+      const res = await api.get('/admin/sirketler', { params: { limit: 200 } });
       if (res.data.success) {
         setSirketler(res.data.data);
       }
@@ -36,12 +36,19 @@ const AdminSirketler = () => {
 
   const promptUpdateOnay = (id, sirketAd, yeniDurum) => {
     const isApprove = yeniDurum === 'onaylandi';
+    const isPassive = yeniDurum === 'pasif';
     setConfirmModal({
       isOpen: true,
-      title: isApprove ? "Şirket Başvurusunu Onayla" : "Şirket Başvurusunu Reddet",
-      message: `"${sirketAd}" adlı şirketin başvurusunu ${isApprove ? 'onaylamak' : 'reddetmek'} istediğinize emin misiniz?`,
+      title: isApprove
+        ? "Şirket Başvurusunu Onayla"
+        : isPassive
+          ? "Şirketi Pasife Al"
+          : "Şirket Başvurusunu Reddet",
+      message: `"${sirketAd}" adlı şirketi ${
+        isApprove ? 'onaylamak' : isPassive ? 'pasife almak' : 'reddetmek'
+      } istediğinize emin misiniz?`,
       variant: isApprove ? "success" : "danger",
-      confirmText: isApprove ? "Evet, Onayla" : "Evet, Reddet",
+      confirmText: isApprove ? "Evet, Onayla" : isPassive ? "Evet, Pasife Al" : "Evet, Reddet",
       onConfirm: async () => {
         try {
           const res = await api.patch(`/admin/sirketler/${id}/onay-durumu`, { onay_durumu: yeniDurum });
@@ -49,7 +56,7 @@ const AdminSirketler = () => {
             setSirketler(prev => prev.map(s => s.id === id ? { ...s, onay_durumu: yeniDurum } : s));
             setConfirmModal({ isOpen: false });
           }
-        } catch (err) {
+        } catch {
           alert("Durum güncellenirken hata oluştu.");
         }
       }
@@ -248,8 +255,13 @@ const AdminSirketler = () => {
                       </Button>
                     )}
                     {s.onay_durumu === 'onaylandi' && (
-                      <Button size="sm" variant="outline" className="text-danger border-danger" onClick={() => promptUpdateOnay(s.id, s.ad, 'reddedildi')}>
-                        <XCircle size={14} /> Reddet
+                      <Button size="sm" variant="outline" className="text-danger border-danger" onClick={() => promptUpdateOnay(s.id, s.ad, 'pasif')}>
+                        <XCircle size={14} /> Pasife Al
+                      </Button>
+                    )}
+                    {s.onay_durumu === 'pasif' && (
+                      <Button size="sm" variant="primary" onClick={() => promptUpdateOnay(s.id, s.ad, 'onaylandi')}>
+                        <CheckCircle size={14} /> Yeniden Etkinleştir
                       </Button>
                     )}
                   </div>

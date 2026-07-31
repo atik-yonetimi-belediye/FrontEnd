@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
 import Button from '../../components/Button';
 import ConfirmModal from '../../components/ConfirmModal';
-import { Recycle, CheckCircle, XCircle, Clock, MapPin, CheckSquare } from 'lucide-react';
+import { CheckCircle, MapPin } from 'lucide-react';
 
 const statusLabels = {
   bekliyor: 'BEKLİYOR',
@@ -33,7 +33,7 @@ const AdminGeriDonusum = () => {
 
   const fetchTalepler = async () => {
     try {
-      const res = await api.get('/recycling-requests');
+      const res = await api.get('/recycling-requests', { params: { limit: 200 } });
       if (res.data.success) {
         setTalepler(res.data.data);
       }
@@ -57,7 +57,7 @@ const AdminGeriDonusum = () => {
             setTalepler(prev => prev.map(t => t.id === id ? { ...t, durum: yeniDurum } : t));
             setConfirmModal({ isOpen: false });
           }
-        } catch (err) {
+        } catch {
           alert("Durum güncellenirken hata oluştu.");
         }
       }

@@ -4,7 +4,7 @@ import api from '../../services/api';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import ConfirmModal from '../../components/ConfirmModal';
-import { PlusCircle, FileText, CheckCircle, Clock, XCircle, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, FileText, CheckCircle, Clock, XCircle, Edit } from 'lucide-react';
 import './SirketDashboard.css';
 
 const SirketDashboard = () => {
@@ -29,7 +29,9 @@ const SirketDashboard = () => {
 
   const fetchTalepler = async () => {
     try {
-      const res = await api.get('/sirket/geri-donusum-talepleri');
+      const res = await api.get('/sirket/geri-donusum-talepleri', {
+        params: { limit: 200 }
+      });
       if (res.data.success) {
         setTalepler(res.data.data);
       }
@@ -65,10 +67,12 @@ const SirketDashboard = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
-        ...formData,
-        tahmini_miktar: parseFloat(formData.tahmini_miktar)
-      };
+      const payload = { ...formData };
+      if (formData.tahmini_miktar !== '') {
+        payload.tahmini_miktar = Number(formData.tahmini_miktar);
+      } else {
+        delete payload.tahmini_miktar;
+      }
 
       if (editingTalep) {
         await api.put(`/sirket/geri-donusum-talepleri/${editingTalep.id}`, payload);
@@ -97,7 +101,7 @@ const SirketDashboard = () => {
           await api.patch(`/sirket/geri-donusum-talepleri/${id}/cancel`);
           setTalepler(prev => prev.map(t => t.id === id ? { ...t, durum: 'iptal_edildi' } : t));
           setConfirmModal({ isOpen: false });
-        } catch (err) {
+        } catch {
           alert("Talep iptal edilemedi.");
         }
       }

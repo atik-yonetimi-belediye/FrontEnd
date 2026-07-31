@@ -4,7 +4,7 @@ import api from '../../services/api';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import ConfirmModal from '../../components/ConfirmModal';
-import { Truck, Users, Trash2, Eye, EyeOff, Edit, RefreshCw, CheckCircle, Info } from 'lucide-react';
+import { Truck, Users, Trash2, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import './CavusAraclar.css';
 
 const formatPhone = (value) => {
@@ -58,8 +58,8 @@ const CavusAraclar = () => {
   const fetchData = async () => {
     try {
       const [aracRes, soforRes] = await Promise.all([
-        api.get('/cavus/araclar'),
-        api.get('/cavus/soforler')
+        api.get('/cavus/araclar', { params: { limit: 200 } }),
+        api.get('/cavus/soforler', { params: { limit: 200 } })
       ]);
       const activeAraclar = aracRes.data.data.filter(a => a.aktif_mi);
       const activeSoforler = soforRes.data.data.filter(s => s.aktif_mi);
@@ -142,10 +142,10 @@ const CavusAraclar = () => {
       variant: "info",
       onConfirm: async () => {
         try {
-          const res = await api.patch(`/cavus/araclar/${arac.id}`, { arac_turu: yeniTur });
+          await api.patch(`/cavus/araclar/${arac.id}`, { arac_turu: yeniTur });
           setAraclar(prev => prev.map(a => a.id === arac.id ? { ...a, arac_turu: yeniTur } : a));
           setConfirmModal({ isOpen: false });
-        } catch (err) {
+        } catch {
           alert("Görev güncellenemedi.");
         }
       }
@@ -163,7 +163,7 @@ const CavusAraclar = () => {
           await api.patch(`/cavus/araclar/${id}/passive`);
           setAraclar(araclar.filter(a => a.id !== id));
           setConfirmModal({ isOpen: false });
-        } catch (err) {
+        } catch {
           alert("İşlem başarısız.");
         }
       }
@@ -205,11 +205,11 @@ const CavusAraclar = () => {
       });
     }
 
-    if (sSifre.length < 6) {
+    if (sSifre.length < 8) {
       return setInfoModal({
         isOpen: true,
         title: "Zayıf Şifre",
-        content: <p>Şifre en az 6 karakterden oluşmalıdır.</p>
+        content: <p>Şifre en az 8 karakterden oluşmalıdır.</p>
       });
     }
 
@@ -266,7 +266,7 @@ const CavusAraclar = () => {
           await api.patch(`/cavus/soforler/${id}/passive`);
           setSoforler(soforler.filter(s => s.id !== id));
           setConfirmModal({ isOpen: false });
-        } catch (err) {
+        } catch {
           alert("İşlem başarısız.");
         }
       }
@@ -276,7 +276,7 @@ const CavusAraclar = () => {
   const handleTransferArac = async () => {
     if (!transferModal.soforId || !transferModal.currentAracId) return;
     try {
-      const res = await api.patch(`/cavus/soforler/${transferModal.soforId}/arac`, {
+      await api.patch(`/cavus/soforler/${transferModal.soforId}/arac`, {
         arac_id: parseInt(transferModal.currentAracId)
       });
       const updatedArac = araclar.find(a => a.id === parseInt(transferModal.currentAracId));
@@ -287,7 +287,7 @@ const CavusAraclar = () => {
         title: "Araç Transferi Başarılı",
         content: <p>Şoförün zimmetli aracı <strong>{updatedArac.plaka}</strong> olarak güncellendi.</p>
       });
-    } catch (err) {
+    } catch {
       alert("Transfer işlemi gerçekleştirilemedi.");
     }
   };
@@ -388,7 +388,7 @@ const CavusAraclar = () => {
                   <div style={{ position: 'relative' }}>
                     <input 
                       type={showSoforPassword ? "text" : "password"}
-                      placeholder="Şifre (En az 6 karakter)"
+                      placeholder="Şifre (En az 8 karakter)"
                       value={sSifre}
                       onChange={e => setSSifre(e.target.value)}
                       className="custom-input"
@@ -427,7 +427,7 @@ const CavusAraclar = () => {
               </form>
 
               <div style={{ marginTop: '1rem', padding: '0.75rem', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                📌 <strong>Şoför Kuralları:</strong> Ad/Soyad harf olmalı, Telefon 11 hane (05XX...), Şifre en az 6 karakter olmalıdır.
+                📌 <strong>Şoför Kuralları:</strong> Ad/Soyad harf olmalı, Telefon 11 hane (05XX...), Şifre en az 8 karakter olmalıdır.
               </div>
             </div>
 
@@ -478,25 +478,29 @@ const CavusAraclar = () => {
       />
 
       {/* Info / Rule Modal */}
-      {infoModal.isOpen && (
-        <div className="custom-modal-backdrop animate-fade-in" onClick={() => setInfoModal({ isOpen: false })}>
-          <div className="custom-modal-window glass-panel" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-title">{infoModal.title}</h3>
-            <div className="modal-message">{infoModal.content}</div>
-            <Button variant="primary" onClick={() => setInfoModal({ isOpen: false })} className="w-full mt-4">
-              Anladım / Tamam
-            </Button>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={infoModal.isOpen}
+        title={infoModal.title}
+        confirmText="Anladım / Tamam"
+        cancelText=""
+        variant="info"
+        onConfirm={() => setInfoModal({ isOpen: false })}
+        onCancel={() => setInfoModal({ isOpen: false })}
+      >
+        <div className="modal-message">{infoModal.content}</div>
+      </ConfirmModal>
 
       {/* Driver Transfer Modal */}
-      {transferModal.isOpen && (
-        <div className="custom-modal-backdrop animate-fade-in" onClick={() => setTransferModal({ isOpen: false })}>
-          <div className="custom-modal-window glass-panel" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-title">Şoför Araç Transferi</h3>
-            <p className="modal-message">Şoförün atanacağı yeni aracı/plakayı seçiniz.</p>
-            
+      <ConfirmModal
+        isOpen={transferModal.isOpen}
+        title="Şoför Araç Transferi"
+        message="Şoförün atanacağı yeni aracı/plakayı seçiniz."
+        confirmText="Transfer Et"
+        confirmDisabled={!transferModal.currentAracId}
+        variant="info"
+        onConfirm={handleTransferArac}
+        onCancel={() => setTransferModal({ isOpen: false })}
+      >
             <div className="form-group" style={{ textAlign: 'left', marginTop: '1rem' }}>
               <label>Yeni Zimmetlenecek Araç</label>
               <select 
@@ -510,14 +514,7 @@ const CavusAraclar = () => {
                 ))}
               </select>
             </div>
-
-            <div className="modal-actions mt-4">
-              <Button variant="outline" onClick={() => setTransferModal({ isOpen: false })}>İptal</Button>
-              <Button variant="primary" onClick={handleTransferArac} disabled={!transferModal.currentAracId}>Transfer Et</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      </ConfirmModal>
     </DashboardLayout>
   );
 };

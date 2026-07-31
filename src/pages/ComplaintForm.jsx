@@ -5,7 +5,8 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import { useToast } from '../components/ToastContext';
+import ConfirmModal from '../components/ConfirmModal';
+import { useToast } from '../components/useToast';
 import api from '../services/api';
 import 'leaflet/dist/leaflet.css';
 import './ComplaintForm.css';
@@ -36,6 +37,20 @@ const formatPhone = (value) => {
     }
   }
   return formatted;
+};
+
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+const FilePreview = ({ file, alt }) => {
+  const [previewUrl, setPreviewUrl] = useState('');
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  return previewUrl ? <img src={previewUrl} alt={alt} /> : null;
 };
 
 const ComplaintForm = () => {
@@ -74,7 +89,9 @@ const ComplaintForm = () => {
   useEffect(() => {
     const fetchContainers = async () => {
       try {
-        const res = await api.get('/konteynerler?aktif_mi=true');
+        const res = await api.get('/konteynerler', {
+          params: { aktif_mi: true, limit: 200 }
+        });
         if (res.data.success) {
           setContainers(res.data.data);
         }
@@ -187,12 +204,22 @@ const ComplaintForm = () => {
 
   const handleFileChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
+    const invalidFile = selectedFiles.find(
+      file => !ALLOWED_IMAGE_TYPES.has(file.type) || file.size > 5 * 1024 * 1024
+    );
+    if (invalidFile) {
+      setError('Fotoğraflar JPG, PNG veya WEBP olmalı ve dosya başına 5 MB sınırını aşmamalıdır.');
+      e.target.value = '';
+      return;
+    }
     if (files.length + selectedFiles.length > 3) {
       setModalOpen(true);
+      e.target.value = '';
       return;
     }
     setFiles(prev => [...prev, ...selectedFiles]);
     setError('');
+    e.target.value = '';
   };
 
   const handleRemoveFile = (index) => {
@@ -505,11 +532,11 @@ const ComplaintForm = () => {
                 <label className="input-label">Fotoğraf Ekle (Maksimum 3 adet)</label>
                 {files.length < 3 && (
                   <label className="file-upload-box">
-                    <input 
-                      type="file" 
-                      multiple 
-                      accept="image/*" 
-                      onChange={handleFileChange} 
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleFileChange}
                       className="hidden-file-input"
                     />
                     <Camera size={32} className="upload-icon" />
@@ -521,7 +548,7 @@ const ComplaintForm = () => {
                   <div className="photo-preview-grid">
                     {files.map((file, idx) => (
                       <div key={idx} className="photo-preview-item animate-fade-in">
-                        <img src={URL.createObjectURL(file)} alt={`Önizleme ${idx + 1}`} />
+                        <FilePreview file={file} alt={`Önizleme ${idx + 1}`} />
                         <button type="button" className="photo-delete-btn" onClick={() => handleRemoveFile(idx)}>×</button>
                       </div>
                     ))}
@@ -553,15 +580,16 @@ const ComplaintForm = () => {
       </div>
 
       {/* 3+ Photo Warning Modal */}
-      {modalOpen && (
-        <div className="modal-backdrop" onClick={() => setModalOpen(false)}>
-          <div className="modal-window animate-fade-in" onClick={e => e.stopPropagation()}>
-            <h3>⚠️ Dosya Sınırı Uyarısı</h3>
-            <p>Bir şikayete en fazla 3 fotoğraf yükleyebilirsiniz. Lütfen gereksiz fotoğrafları kaldırın.</p>
-            <Button variant="primary" onClick={() => setModalOpen(false)}>Tamam</Button>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={modalOpen}
+        title="Dosya Sınırı Uyarısı"
+        message="Bir şikâyete en fazla 3 fotoğraf yükleyebilirsiniz. Lütfen gereksiz fotoğrafları kaldırın."
+        confirmText="Tamam"
+        cancelText=""
+        variant="warning"
+        onConfirm={() => setModalOpen(false)}
+        onCancel={() => setModalOpen(false)}
+      />
     </div>
   );
 };

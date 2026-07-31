@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
-import api from '../../services/api';
+import api, { resolveAssetUrl } from '../../services/api';
 import Button from '../../components/Button';
 import ConfirmModal from '../../components/ConfirmModal';
 import LightboxModal from '../../components/LightboxModal';
-import { useToast } from '../../components/ToastContext';
-import { FileText, CheckCircle, Clock, AlertTriangle, MapPin, Search, Trash2, Map, Eye } from 'lucide-react';
+import { useToast } from '../../components/useToast';
+import { CheckCircle, Clock, MapPin, Search, Trash2, Map, Eye } from 'lucide-react';
 import './AdminSikayetler.css';
 
 const kategoriLabels = {
@@ -34,17 +34,14 @@ const AdminSikayetler = () => {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, variant: 'warning' });
   const [lightbox, setLightbox] = useState({ isOpen: false, images: [], index: 0 });
 
-  useEffect(() => {
-    fetchSikayetler();
-  }, [filterDurum, filterTur, filterKategori]);
-
-  const fetchSikayetler = async () => {
+  const fetchSikayetler = useCallback(async () => {
     setLoading(true);
     try {
       const params = {};
       if (filterDurum !== 'hepsi') params.durum = filterDurum;
       if (filterTur !== 'hepsi') params.sikayet_turu = filterTur;
       if (filterKategori !== 'hepsi') params.sikayet_kategorisi = filterKategori;
+      params.limit = 200;
 
       const res = await api.get('/sikayetler', { params });
       if (res.data.success) {
@@ -55,7 +52,11 @@ const AdminSikayetler = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterDurum, filterTur, filterKategori]);
+
+  useEffect(() => {
+    fetchSikayetler();
+  }, [fetchSikayetler]);
 
   const promptUpdateDurum = (id, yeniDurum) => {
     const durumIsimleri = {
@@ -77,7 +78,7 @@ const AdminSikayetler = () => {
             showToast(`Şikayet durumu "${durumIsimleri[yeniDurum]}" olarak güncellendi.`, 'success');
             setConfirmModal({ isOpen: false });
           }
-        } catch (err) {
+        } catch {
           showToast("Durum güncellenirken hata oluştu.", "error");
         }
       }
@@ -87,17 +88,17 @@ const AdminSikayetler = () => {
   const promptDeleteSikayet = (id) => {
     setConfirmModal({
       isOpen: true,
-      title: "Şikayeti Sil",
-      message: "Bu şikayeti sistemden kalıcı olarak silmek istediğinize emin misiniz?",
+      title: "Şikâyeti Arşivle",
+      message: "Bu şikâyeti aktif listeden kaldırıp arşivlemek istediğinize emin misiniz? İlişkili fotoğraflar silinecektir.",
       variant: "danger",
-      confirmText: "Evet, Sil",
+      confirmText: "Evet, Arşivle",
       onConfirm: async () => {
         try {
           await api.delete(`/sikayetler/${id}`);
           setSikayetler(prev => prev.filter(s => s.id !== id));
-          showToast("Şikayet sistemden silindi.", "info");
+          showToast("Şikâyet arşivlendi.", "info");
           setConfirmModal({ isOpen: false });
-        } catch (err) {
+        } catch {
           showToast("Şikayet silinirken hata oluştu.", "error");
         }
       }
@@ -107,7 +108,7 @@ const AdminSikayetler = () => {
   const openLightbox = (fotograflar, index = 0) => {
     const imageUrls = fotograflar.map(f => {
       const url = f.foto_url || f;
-      return url.startsWith('http') ? url : `http://localhost:5001${url}`;
+      return resolveAssetUrl(url);
     });
     setLightbox({ isOpen: true, images: imageUrls, index });
   };
@@ -250,8 +251,7 @@ const AdminSikayetler = () => {
                         const url = fotoObj.foto_url || fotoObj;
                         if (!url || typeof url !== 'string') return null;
                         
-                        const isAbsolute = url.startsWith('http');
-                        const imgSrc = isAbsolute ? url : `http://localhost:5001${url}`;
+                        const imgSrc = resolveAssetUrl(url);
                         return (
                           <div key={idx} style={{ position: 'relative', cursor: 'pointer' }} onClick={() => openLightbox(s.fotograflar, idx)}>
                             <img 
@@ -286,14 +286,19 @@ const AdminSikayetler = () => {
                         İnceleniyor
                       </Button>
                     )}
-                    {s.durum !== 'cozuldu' && (
+                    {s.durum === 'inceleniyor' && (
                       <Button size="sm" variant="primary" onClick={() => promptUpdateDurum(s.id, 'cozuldu')}>
                         <CheckCircle size={14} /> Çözüldü
                       </Button>
                     )}
-                    {s.durum !== 'reddedildi' && (
+                    {(s.durum === 'bekliyor' || s.durum === 'inceleniyor') && (
                       <Button size="sm" variant="outline" className="text-danger border-danger" onClick={() => promptUpdateDurum(s.id, 'reddedildi')}>
                         Reddet
+                      </Button>
+                    )}
+                    {(s.durum === 'cozuldu' || s.durum === 'reddedildi') && (
+                      <Button size="sm" variant="outline" onClick={() => promptUpdateDurum(s.id, 'inceleniyor')}>
+                        Yeniden İncele
                       </Button>
                     )}
                   </div>
