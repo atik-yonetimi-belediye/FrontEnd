@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
-import api from '../../services/api';
+import { fetchAllPages } from '../../services/pagination';
 import { Users, UserCheck } from 'lucide-react';
 import './AdminDashboard.css'; // sharing dashboard layouts and variables
 
@@ -36,18 +36,12 @@ const AdminPersonel = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [cavRes, sofRes] = await Promise.all([
-        api.get('/admin/cavuslar', { params: { limit: 200 } }),
-        api.get('/admin/soforler', { params: { limit: 200 } })
+      const [cavItems, sofItems] = await Promise.all([
+        fetchAllPages('/admin/cavuslar'),
+        fetchAllPages('/admin/soforler')
       ]);
-      
-      if (cavRes.data.success) {
-        setCavuslar(cavRes.data.data);
-      }
-      
-      if (sofRes.data.success) {
-        setSoforler(sofRes.data.data);
-      }
+      setCavuslar(cavItems);
+      setSoforler(sofItems);
     } catch (err) {
       console.error("Personel listesi yüklenemedi", err);
     } finally {
@@ -62,11 +56,14 @@ const AdminPersonel = () => {
       <div className="admin-personel" style={{ padding: '0.5rem' }}>
         
         {/* Sekme Butonları */}
-        <div className="role-tabs" style={{ display: 'flex', maxWidth: '300px', marginBottom: '2rem' }}>
+        <div className="role-tabs" role="tablist" aria-label="Personel türü" style={{ display: 'flex', maxWidth: '300px', marginBottom: '2rem' }}>
           <button 
             type="button" 
             className={`role-tab ${activeTab === 'cavuslar' ? 'active' : ''}`}
             onClick={() => setActiveTab('cavuslar')}
+            role="tab"
+            aria-selected={activeTab === 'cavuslar'}
+            aria-controls="cavuslar-panel"
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
             <UserCheck size={16} /> <span>Çavuşlar ({cavuslar.length})</span>
@@ -75,6 +72,9 @@ const AdminPersonel = () => {
             type="button" 
             className={`role-tab ${activeTab === 'soforler' ? 'active' : ''}`}
             onClick={() => setActiveTab('soforler')}
+            role="tab"
+            aria-selected={activeTab === 'soforler'}
+            aria-controls="soforler-panel"
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
             <Users size={16} /> <span>Şoförler ({soforler.length})</span>
@@ -83,8 +83,8 @@ const AdminPersonel = () => {
 
         {/* Çavuşlar Listesi */}
         {activeTab === 'cavuslar' && (
-          <div className="glass-panel" style={{ padding: '1.5rem', overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div id="cavuslar-panel" role="tabpanel" className="glass-panel" style={{ padding: '1.5rem', overflowX: 'auto' }}>
+            <table className="responsive-data-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
                   <th style={{ padding: '0.75rem' }}>Ad Soyad</th>
@@ -102,10 +102,10 @@ const AdminPersonel = () => {
                 ) : (
                   cavuslar.map(c => (
                     <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
-                      <td style={{ padding: '0.75rem', fontWeight: 600 }}>{c.ad_soyad}</td>
-                      <td style={{ padding: '0.75rem' }}>{formatPhone(c.telefon)}</td>
-                      <td style={{ padding: '0.75rem' }}>{c.mahalle_ad || 'Belirtilmemiş'}</td>
-                      <td style={{ padding: '0.75rem' }}>
+                      <td data-label="Ad Soyad" style={{ padding: '0.75rem', fontWeight: 600 }}>{c.ad_soyad}</td>
+                      <td data-label="Telefon" style={{ padding: '0.75rem' }}>{formatPhone(c.telefon)}</td>
+                      <td data-label="Sorumlu Mahalle" style={{ padding: '0.75rem' }}>{c.mahalle_ad || 'Belirtilmemiş'}</td>
+                      <td data-label="Durum" style={{ padding: '0.75rem' }}>
                         <span style={{
                           padding: '0.25rem 0.5rem',
                           borderRadius: '4px',
@@ -117,7 +117,7 @@ const AdminPersonel = () => {
                           {c.aktif_mi ? 'AKTİF' : 'PASİF'}
                         </span>
                       </td>
-                      <td style={{ padding: '0.75rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      <td data-label="Kayıt Tarihi" style={{ padding: '0.75rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                         {new Date(c.created_at).toLocaleDateString('tr-TR')}
                       </td>
                     </tr>
@@ -130,8 +130,8 @@ const AdminPersonel = () => {
 
         {/* Şoförler Listesi */}
         {activeTab === 'soforler' && (
-          <div className="glass-panel" style={{ padding: '1.5rem', overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div id="soforler-panel" role="tabpanel" className="glass-panel" style={{ padding: '1.5rem', overflowX: 'auto' }}>
+            <table className="responsive-data-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
                   <th style={{ padding: '0.75rem' }}>Ad Soyad</th>
@@ -150,9 +150,9 @@ const AdminPersonel = () => {
                 ) : (
                   soforler.map(s => (
                     <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
-                      <td style={{ padding: '0.75rem', fontWeight: 600 }}>{s.ad} {s.soyad}</td>
-                      <td style={{ padding: '0.75rem' }}>{formatPhone(s.telefon)}</td>
-                      <td style={{ padding: '0.75rem' }}>
+                      <td data-label="Ad Soyad" style={{ padding: '0.75rem', fontWeight: 600 }}>{s.ad} {s.soyad}</td>
+                      <td data-label="Telefon" style={{ padding: '0.75rem' }}>{formatPhone(s.telefon)}</td>
+                      <td data-label="Kullandığı Araç" style={{ padding: '0.75rem' }}>
                         {s.plaka ? (
                           <span style={{
                             padding: '0.25rem 0.5rem',
@@ -166,9 +166,9 @@ const AdminPersonel = () => {
                           </span>
                         ) : 'Yok'}
                       </td>
-                      <td style={{ padding: '0.75rem' }}>{s.cavus_ad_soyad || '-'}</td>
-                      <td style={{ padding: '0.75rem' }}>{s.mahalle_ad || '-'}</td>
-                      <td style={{ padding: '0.75rem' }}>
+                      <td data-label="Bağlı Olduğu Çavuş" style={{ padding: '0.75rem' }}>{s.cavus_ad_soyad || '-'}</td>
+                      <td data-label="Bölge" style={{ padding: '0.75rem' }}>{s.mahalle_ad || '-'}</td>
+                      <td data-label="Durum" style={{ padding: '0.75rem' }}>
                         <span style={{
                           padding: '0.25rem 0.5rem',
                           borderRadius: '4px',

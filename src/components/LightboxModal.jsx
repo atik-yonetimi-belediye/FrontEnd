@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import './LightboxModal.css';
+import useDialogFocusTrap from '../hooks/useDialogFocusTrap';
 
 const LightboxModal = ({ images = [], initialIndex = 0, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const dialogRef = useRef(null);
+  useDialogFocusTrap(dialogRef, images.length > 0, onClose);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onClose();
       if (event.key === 'ArrowLeft') {
         setCurrentIndex(prev => (prev === 0 ? images.length - 1 : prev - 1));
       }
@@ -33,24 +35,26 @@ const LightboxModal = ({ images = [], initialIndex = 0, onClose }) => {
 
   return (
     <div
+      ref={dialogRef}
       className="lightbox-backdrop"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
+      tabIndex={-1}
       aria-label="Fotoğraf görüntüleyici"
     >
       <div className="lightbox-header">
-        <button className="lightbox-close-btn" onClick={onClose} title="Kapat">
+        <button className="lightbox-close-btn" onClick={onClose} title="Kapat" aria-label="Fotoğraf görüntüleyiciyi kapat">
           <X size={24} />
         </button>
       </div>
 
       {images.length > 1 && (
         <>
-          <button className="lightbox-nav-btn prev" onClick={handlePrev} title="Önceki Fotoğraf">
+          <button className="lightbox-nav-btn prev" onClick={handlePrev} title="Önceki Fotoğraf" aria-label="Önceki fotoğraf">
             <ChevronLeft size={28} />
           </button>
-          <button className="lightbox-nav-btn next" onClick={handleNext} title="Sonraki Fotoğraf">
+          <button className="lightbox-nav-btn next" onClick={handleNext} title="Sonraki Fotoğraf" aria-label="Sonraki fotoğraf">
             <ChevronRight size={28} />
           </button>
         </>
@@ -60,7 +64,7 @@ const LightboxModal = ({ images = [], initialIndex = 0, onClose }) => {
         <img src={images[currentIndex]} alt={`Fotoğraf ${currentIndex + 1}`} />
       </div>
 
-      <div className="lightbox-caption">
+      <div className="lightbox-caption" aria-live="polite">
         Fotoğraf {currentIndex + 1} / {images.length}
       </div>
     </div>

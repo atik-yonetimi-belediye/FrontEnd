@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import DashboardLayout from '../../components/DashboardLayout';
@@ -8,6 +8,12 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { MapPin, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import './SoforDashboard.css';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAllPages } from '../../services/pagination';
+import { createIdempotencyKey, queueOfflineRequest } from '../../services/offlineQueue';
+import { useToast } from '../../components/useToast';
+import { useAuth } from '../../context/useAuth';
+import { trackPilotEvent } from '../../services/observability';
 
 const createIcon = () => {
   return L.divIcon({
@@ -28,9 +34,15 @@ const createTruckIcon = () => {
 };
 
 const SoforDashboard = () => {
-  const [konteynerler, setKonteynerler] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const { user } = useAuth();
+  const operationStartedAt = useRef(performance.now());
+  const queryKey = ['sofor', 'konteynerler'];
+  const { data: konteynerler = [], isPending: loading, isError, refetch } = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => fetchAllPages('/sofor/konteynerler', { signal }),
+  });
   const [userLocation, setUserLocation] = useState(null);
   
   // Modal state
@@ -43,47 +55,39 @@ const SoforDashboard = () => {
   const center = [37.5858, 36.9145];
 
   useEffect(() => {
-    fetchKonteynerler();
-
     // Geolocation tracker
     if (navigator.geolocation) {
       const watchId = navigator.geolocation.watchPosition(
         (pos) => {
           setUserLocation([pos.coords.latitude, pos.coords.longitude]);
         },
-        (err) => {
-          console.error("Konum alınamadı:", err);
-        },
-        { enableHighAccuracy: true }
+        () => setUserLocation(null),
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 }
       );
       return () => navigator.geolocation.clearWatch(watchId);
     }
   }, []);
 
-  const fetchKonteynerler = async () => {
-    try {
-      const res = await api.get('/sofor/konteynerler', { params: { limit: 200 } });
-      if (res.data.success) {
-        setKonteynerler(res.data.data);
-      }
-    } catch {
-      console.error("Konteynerler getirilemedi", err);
-      setKonteynerler([]);
-      setLoadError('Görev listesi alınamadı. Bağlantınızı kontrol edip yeniden deneyin.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleToplandi = async (id) => {
+    const payload = { konteyner_id: id, durum: 'toplandi' };
+    const idempotencyKey = createIdempotencyKey();
     try {
-      await api.post('/sofor/toplama-kayitlari', {
-        konteyner_id: id,
-        durum: 'toplandi'
-      });
-      setKonteynerler(prev => prev.filter(k => k.id !== id));
-    } catch {
-      alert("İşlem başarısız oldu.");
+      if (!navigator.onLine) throw new Error('offline');
+      await api.post('/sofor/toplama-kayitlari', payload, { headers: { 'Idempotency-Key': idempotencyKey } });
+      queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== id));
+      showToast('Toplama kaydı oluşturuldu.', 'success');
+      trackPilotEvent('collection_success', performance.now() - operationStartedAt.current);
+      operationStartedAt.current = performance.now();
+    } catch (error) {
+      if (!error.response) {
+        await queueOfflineRequest('/sofor/toplama-kayitlari', payload, idempotencyKey, user?.id);
+        queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== id));
+        showToast('Kayıt çevrimdışı kuyruğa alındı. Bağlantı gelince gönderilecek.', 'info');
+        trackPilotEvent('collection_queued', performance.now() - operationStartedAt.current);
+      } else {
+        showToast('İşlem tamamlanamadı. Lütfen yeniden deneyin.', 'error');
+        trackPilotEvent('collection_failed', performance.now() - operationStartedAt.current);
+      }
     }
   };
 
@@ -103,17 +107,32 @@ const SoforDashboard = () => {
       return;
     }
     setSkipError(false);
-    try {
-      await api.post('/sofor/toplama-kayitlari', {
+    const payload = {
         konteyner_id: selectedKonteyner.id,
         durum: 'atlanildi',
         sebep: skipReason,
         diger_aciklama: skipReason === 'Diğer' ? otherReason : null
-      });
-      setKonteynerler(prev => prev.filter(k => k.id !== selectedKonteyner.id));
+    };
+    const idempotencyKey = createIdempotencyKey();
+    try {
+      if (!navigator.onLine) throw new Error('offline');
+      await api.post('/sofor/toplama-kayitlari', payload, { headers: { 'Idempotency-Key': idempotencyKey } });
+      queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== selectedKonteyner.id));
       setSkipModalOpen(false);
-    } catch {
-      alert("İşlem başarısız oldu.");
+      showToast('Atlama kaydı oluşturuldu.', 'success');
+      trackPilotEvent('skip_success', performance.now() - operationStartedAt.current);
+      operationStartedAt.current = performance.now();
+    } catch (error) {
+      if (!error.response) {
+        await queueOfflineRequest('/sofor/toplama-kayitlari', payload, idempotencyKey, user?.id);
+        queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== selectedKonteyner.id));
+        setSkipModalOpen(false);
+        showToast('Kayıt çevrimdışı kuyruğa alındı. Bağlantı gelince gönderilecek.', 'info');
+        trackPilotEvent('skip_queued', performance.now() - operationStartedAt.current);
+      } else {
+        showToast('İşlem tamamlanamadı. Lütfen yeniden deneyin.', 'error');
+        trackPilotEvent('skip_failed', performance.now() - operationStartedAt.current);
+      }
     }
   };
 
@@ -155,10 +174,10 @@ const SoforDashboard = () => {
   return (
     <DashboardLayout title="Günlük Rota">
       <div className="sofor-dashboard">
-        {loadError && (
+        {isError && (
           <div className="error-banner" role="alert">
-            {loadError}
-            <Button variant="outline" size="sm" onClick={fetchKonteynerler}>
+            Görev listesi alınamadı. Bağlantınızı kontrol edip yeniden deneyin.
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
               Yeniden Dene
             </Button>
           </div>
@@ -180,7 +199,7 @@ const SoforDashboard = () => {
             {/* Containers */}
             {konteynerler.map(k => (
               k.latitude && k.longitude && (
-                <Marker key={k.id} position={[k.latitude, k.longitude]} icon={createIcon()}>
+                <Marker key={k.id} position={[k.latitude, k.longitude]} icon={createIcon()} title={`${k.konteyner_kodu} görevi`} alt={`${k.konteyner_kodu} görevi`}>
                   <Popup className="custom-popup">
                     <div className="popup-content" style={{ textAlign: 'center' }}>
                       <strong className="popup-title">{k.konteyner_kodu}</strong><br/>
@@ -193,7 +212,7 @@ const SoforDashboard = () => {
 
             {/* User (Driver) Location */}
             {userLocation && (
-              <Marker position={userLocation} icon={createTruckIcon()}>
+              <Marker position={userLocation} icon={createTruckIcon()} title="Mevcut konumunuz" alt="Mevcut konumunuz">
                 <Popup className="custom-popup">
                   <div className="popup-content">
                     <strong className="popup-title">Şu anki Konumunuz</strong>
@@ -218,16 +237,17 @@ const SoforDashboard = () => {
                   <span className="k-badge">{k.mahalle_ad}</span>
                 </div>
                 <div className="k-actions" style={{ display: 'flex', gap: '0.5rem', width: '100%', marginTop: '1rem' }}>
-                  <a
+                  <Button
+                    as="a"
                     href={`https://www.google.com/maps/dir/?api=1&destination=${k.latitude},${k.longitude}`}
                     target="_blank"
                     rel="noopener noreferrer"
+                    variant="outline"
+                    className="w-full"
                     style={{ flex: 1, textDecoration: 'none' }}
                   >
-                    <Button variant="outline" className="w-full" style={{ fontSize: '0.9rem' }}>
-                      🗺️ Yol Tarifi
-                    </Button>
-                  </a>
+                    🗺️ Yol Tarifi
+                  </Button>
                   <Button variant="outline" className="action-btn text-danger border-danger" onClick={() => openSkipModal(k)}>
                     <XCircle size={18} /> Atla
                   </Button>

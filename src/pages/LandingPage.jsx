@@ -4,57 +4,41 @@ import { Leaf, AlertTriangle, LogIn, Recycle, MapPin, Sun, Moon, Trees, Zap, Awa
 import Button from '../components/Button';
 import api from '../services/api';
 import './LandingPage.css';
+import useDialogFocusTrap from '../hooks/useDialogFocusTrap';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '../services/pagination';
 
 const LandingPage = () => {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
-  const [containers, setContainers] = useState([]);
   const [locatorOpen, setLocatorOpen] = useState(false);
   const [nearestContainer, setNearestContainer] = useState(null);
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState('');
   const locatorDialogRef = useRef(null);
-  const [stats, setStats] = useState({
+  const emptyStats = {
     aktif_konteyner: 0,
     bugun_toplanan: 0,
     cozulen_sikayet: 0,
     tamamlanan_geri_donusum_talebi: 0,
     tamamlanan_tahmini_miktar: 0
+  };
+  const { data: pageData = { containers: [], stats: emptyStats } } = useQuery({
+    queryKey: ['public', 'landing'],
+    queryFn: async ({ signal }) => {
+      const [containers, statsResponse] = await Promise.all([
+        fetchAllPages('/konteynerler', { params: { aktif_mi: true }, signal }),
+        api.get('/public/stats', { signal }),
+      ]);
+      return { containers, stats: statsResponse.data?.data ?? emptyStats };
+    },
   });
+  const { containers, stats } = pageData;
+  useDialogFocusTrap(locatorDialogRef, locatorOpen, () => setLocatorOpen(false));
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
-
-  useEffect(() => {
-    const fetchPageData = async () => {
-      try {
-        const [containerResponse, statsResponse] = await Promise.all([
-          api.get('/konteynerler', { params: { aktif_mi: true, limit: 200 } }),
-          api.get('/public/stats')
-        ]);
-        if (containerResponse.data.success) setContainers(containerResponse.data.data);
-        if (statsResponse.data.success) setStats(statsResponse.data.data);
-      } catch (err) {
-        console.error("Ana sayfa verileri alınamadı", err);
-      }
-    };
-    fetchPageData();
-  }, []);
-
-  useEffect(() => {
-    if (!locatorOpen) return undefined;
-    const previousActiveElement = document.activeElement;
-    locatorDialogRef.current?.focus();
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') setLocatorOpen(false);
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      previousActiveElement?.focus?.();
-    };
-  }, [locatorOpen]);
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
@@ -130,19 +114,17 @@ const LandingPage = () => {
           <span className="logo-text">Onikişubat Bld. Atık Yönetimi</span>
         </div>
         <div className="header-actions" style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
-          <button className="theme-toggle-btn" onClick={toggleTheme} title="Tema Değiştir">
+          <button className="theme-toggle-btn" onClick={toggleTheme} title="Tema Değiştir" aria-label={theme === 'light' ? 'Koyu temaya geç' : 'Açık temaya geç'}>
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
-          <Link to="/login">
-            <Button variant="primary" size="sm" className="login-link">
-              <LogIn size={16} /> Giriş Yap
-            </Button>
-          </Link>
+          <Button as={Link} to="/login" variant="primary" size="sm" className="login-link">
+            <LogIn size={16} /> Giriş Yap
+          </Button>
         </div>
       </header>
 
       {/* Hero Section */}
-      <main className="hero-section">
+      <main className="hero-section" id="main-content" tabIndex={-1}>
         <div className="hero-content glass-panel">
           <div className="badge">🌱 Temiz Bir Çevre & Akıllı Şehir</div>
           <h1 className="hero-title">
@@ -154,11 +136,9 @@ const LandingPage = () => {
           </p>
           
           <div className="hero-buttons">
-            <Link to="/sikayet-olustur">
-              <Button variant="primary" size="lg" className="hero-btn shadow-hover">
-                <AlertTriangle size={20} /> Şikayet Bildir
-              </Button>
-            </Link>
+            <Button as={Link} to="/sikayet-olustur" variant="primary" size="lg" className="hero-btn shadow-hover">
+              <AlertTriangle size={20} /> Şikayet Bildir
+            </Button>
             
             <Button variant="outline" size="lg" className="hero-btn" onClick={handleFindNearestContainer}>
               <Compass size={20} /> En Yakın Konteyneri Bul
@@ -248,7 +228,7 @@ const LandingPage = () => {
             </h3>
             
             {locating ? (
-              <p className="py-4">Konumunuz ve en yakın konteyner tespiti yapılıyor...</p>
+              <p className="py-4" id="locator-dialog-status" role="status" aria-live="polite">Konumunuz ve en yakın konteyner tespiti yapılıyor...</p>
             ) : locationError ? (
               <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                 <p className="text-danger">{locationError}</p>

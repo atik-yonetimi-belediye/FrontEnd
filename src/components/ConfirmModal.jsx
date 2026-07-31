@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useId, useRef } from 'react';
 import { AlertTriangle, CheckCircle, Info, XCircle, X } from 'lucide-react';
 import Button from './Button';
 import './ConfirmModal.css';
+import useDialogFocusTrap from '../hooks/useDialogFocusTrap';
 
 const ConfirmModal = ({
   isOpen,
@@ -16,23 +17,9 @@ const ConfirmModal = ({
   children
 }) => {
   const dialogRef = useRef(null);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-
-    const previousActiveElement = document.activeElement;
-    dialogRef.current?.focus();
-
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onCancel();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      previousActiveElement?.focus?.();
-    };
-  }, [isOpen, onCancel]);
+  const titleId = useId();
+  const messageId = useId();
+  useDialogFocusTrap(dialogRef, isOpen, onCancel);
 
   if (!isOpen) return null;
 
@@ -57,7 +44,8 @@ const ConfirmModal = ({
         onClick={e => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="confirm-modal-title"
+        aria-labelledby={titleId}
+        aria-describedby={message ? messageId : undefined}
         tabIndex={-1}
       >
         <button className="modal-close-btn" onClick={onCancel} aria-label="Pencereyi kapat">
@@ -68,8 +56,8 @@ const ConfirmModal = ({
           {renderIcon()}
         </div>
 
-        <h3 className="modal-title" id="confirm-modal-title">{title}</h3>
-        {message && <p className="modal-message">{message}</p>}
+        <h3 className="modal-title" id={titleId}>{title}</h3>
+        {message && <p className="modal-message" id={messageId}>{message}</p>}
         {children}
 
         <div className="modal-actions">

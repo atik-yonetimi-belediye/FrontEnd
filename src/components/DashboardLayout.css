@@ -136,6 +136,8 @@
   border-radius: 6px;
   align-items: center;
   justify-content: center;
+  width: 44px;
+  height: 44px;
 }
 
 .hamburger-btn:hover {
@@ -152,7 +154,11 @@
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 4px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
 }
 
 .avatar {
@@ -178,6 +184,12 @@
 
 .sidebar-backdrop {
   display: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.mobile-bottom-nav {
+  display: none;
 }
 
 /* Responsive Breakpoints */
@@ -199,7 +211,7 @@
   }
 
   .mobile-close-btn {
-    display: block;
+    display: flex;
   }
 
   .dashboard-sidebar {
@@ -236,6 +248,50 @@
 
   .dashboard-content {
     padding: 1rem;
+  }
+
+  .mobile-nav-enabled .dashboard-content {
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 900;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    padding: 0.4rem max(0.5rem, env(safe-area-inset-right)) max(0.4rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
+    border-top: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.14);
+    backdrop-filter: blur(18px);
+  }
+
+  .mobile-bottom-link {
+    min-width: 0;
+    min-height: 54px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.3rem 0.25rem;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .mobile-bottom-link.active {
+    background: var(--primary-light);
+    color: var(--primary-color);
   }
 }
 

@@ -1,0 +1,6 @@
+.pwa-status { position: fixed; z-index: 3000; left: calc(.75rem + env(safe-area-inset-left)); right: calc(.75rem + env(safe-area-inset-right)); bottom: calc(.75rem + env(safe-area-inset-bottom)); width: min(520px, calc(100% - 1.5rem - env(safe-area-inset-left) - env(safe-area-inset-right))); margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); color: var(--text-primary); background: color-mix(in srgb, var(--bg-secondary) 94%, transparent); box-shadow: var(--shadow-lg); backdrop-filter: blur(18px); }
+.pwa-status div { display: grid; gap: .15rem; }
+.pwa-status span { color: var(--text-secondary); font-size: .78rem; line-height: 1.35; }
+.pwa-offline { border-color: color-mix(in srgb, var(--warning-color) 55%, transparent); }
+.pwa-update { border-color: color-mix(in srgb, var(--primary-color) 55%, transparent); }
+@media (max-width: 420px) { .pwa-status { align-items: flex-start; } .pwa-status .btn { flex-shrink: 0; } }

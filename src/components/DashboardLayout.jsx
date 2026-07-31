@@ -63,20 +63,22 @@ const DashboardLayout = ({ children, title }) => {
     }
   };
 
+  const menuLinks = getMenuLinks();
+  const hasMobileBottomNav = ['cavus', 'sofor'].includes(user?.role);
   const avatarLetter = (user?.ad_soyad?.charAt(0) || user?.ad?.charAt(0) || user?.kullanici_adi?.charAt(0) || 'U').toUpperCase();
 
   return (
-    <div className="dashboard-container">
+    <div className={`dashboard-container ${hasMobileBottomNav ? 'mobile-nav-enabled' : ''}`}>
       
       {/* Mobile Backdrop Overlay */}
       {mobileMenuOpen && (
-        <div className="sidebar-backdrop" onClick={() => setMobileMenuOpen(false)} />
+        <button type="button" className="sidebar-backdrop" onClick={() => setMobileMenuOpen(false)} aria-label="Menüyü kapat" />
       )}
 
       {/* Sidebar Navigation */}
-      <aside className={`dashboard-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
+      <aside id="dashboard-navigation" className={`dashboard-sidebar ${mobileMenuOpen ? 'open' : ''}`} aria-label="Ana menü">
         <div className="sidebar-header" style={{textAlign: 'center', position: 'relative'}}>
-          <button className="mobile-close-btn" onClick={() => setMobileMenuOpen(false)}>
+          <button className="mobile-close-btn" onClick={() => setMobileMenuOpen(false)} aria-label="Menüyü kapat">
             <X size={20} />
           </button>
           <h3 style={{fontSize: '1.1rem', margin: 0, paddingBottom: '5px'}}>Onikişubat Bld.</h3>
@@ -86,7 +88,7 @@ const DashboardLayout = ({ children, title }) => {
         </div>
         
         <nav className="sidebar-nav">
-          {getMenuLinks().map(link => {
+          {menuLinks.map(link => {
             const isActive = location.pathname === link.path;
             return (
               <Link 
@@ -94,6 +96,7 @@ const DashboardLayout = ({ children, title }) => {
                 to={link.path} 
                 className={`nav-link ${isActive ? 'active' : ''}`}
                 onClick={() => setMobileMenuOpen(false)}
+                aria-current={isActive ? 'page' : undefined}
               >
                 {link.icon} <span>{link.name}</span>
               </Link>
@@ -109,12 +112,15 @@ const DashboardLayout = ({ children, title }) => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="dashboard-main">
+      <main className="dashboard-main" id="main-content" tabIndex={-1}>
         <header className="dashboard-header">
           <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <button 
               className="hamburger-btn" 
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Ana menüyü aç"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="dashboard-navigation"
               title="Menüyü Aç"
             >
               <Menu size={22} />
@@ -123,7 +129,7 @@ const DashboardLayout = ({ children, title }) => {
           </div>
 
           <div className="user-info" style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
-            <button className="theme-toggle-btn" onClick={toggleTheme} title="Tema Değiştir">
+            <button className="theme-toggle-btn" onClick={toggleTheme} title="Tema Değiştir" aria-label={theme === 'light' ? 'Koyu temaya geç' : 'Açık temaya geç'}>
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
             <div className="avatar" title={user?.ad_soyad || user?.kullanici_adi}>{avatarLetter}</div>
@@ -134,6 +140,34 @@ const DashboardLayout = ({ children, title }) => {
           {children}
         </div>
       </main>
+
+      {hasMobileBottomNav && (
+        <nav className="mobile-bottom-nav" aria-label="Mobil hızlı menü">
+          {menuLinks.map((link) => {
+            const isActive = location.pathname === link.path;
+            return (
+              <Link
+                key={`mobile-${link.name}`}
+                to={link.path}
+                className={`mobile-bottom-link ${isActive ? 'active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                {link.icon}
+                <span>{link.name}</span>
+              </Link>
+            );
+          })}
+          <button
+            type="button"
+            className="mobile-bottom-link"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Diğer menü seçeneklerini aç"
+          >
+            <Menu size={20} />
+            <span>Menü</span>
+          </button>
+        </nav>
+      )}
 
       {/* Logout Confirmation Modal */}
       <ConfirmModal

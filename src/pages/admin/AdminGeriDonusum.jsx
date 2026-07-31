@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
+import { fetchAllPages } from '../../services/pagination';
 import Button from '../../components/Button';
 import ConfirmModal from '../../components/ConfirmModal';
 import { CheckCircle, MapPin } from 'lucide-react';
@@ -33,10 +34,7 @@ const AdminGeriDonusum = () => {
 
   const fetchTalepler = async () => {
     try {
-      const res = await api.get('/recycling-requests', { params: { limit: 200 } });
-      if (res.data.success) {
-        setTalepler(res.data.data);
-      }
+      setTalepler(await fetchAllPages('/recycling-requests'));
     } catch (err) {
       console.error("Geri dönüşüm talepleri yüklenemedi", err);
     } finally {
@@ -90,7 +88,7 @@ const AdminGeriDonusum = () => {
 
         {/* Liste Tablosu */}
         <div className="glass-panel" style={{ padding: '1.5rem', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <table className="responsive-data-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
                 <th style={{ padding: '0.75rem' }}>Gönderen / Şirket</th>
@@ -110,14 +108,14 @@ const AdminGeriDonusum = () => {
               ) : (
                 filtered.map(t => (
                   <tr key={t.id} style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
-                    <td style={{ padding: '0.75rem' }}>
+                    <td data-label="Gönderen / Şirket" style={{ padding: '0.75rem' }}>
                       <div style={{ fontWeight: 600 }}>{t.gonderen_ad}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                         {t.gonderen_telefon} ({t.gonderen_tipi === 'sirket' ? 'Şirket' : 'Vatandaş'})
                       </div>
                       {t.sirket_ad && <div style={{ fontSize: '0.75rem', color: 'var(--primary-color)' }}>{t.sirket_ad}</div>}
                     </td>
-                    <td style={{ padding: '0.75rem' }}>
+                    <td data-label="Tür" style={{ padding: '0.75rem' }}>
                       <span style={{
                         padding: '0.25rem 0.5rem',
                         borderRadius: '4px',
@@ -129,16 +127,16 @@ const AdminGeriDonusum = () => {
                         {t.atik_turu ? t.atik_turu.toUpperCase() : 'GERİ DÖNÜŞÜM'}
                       </span>
                     </td>
-                    <td style={{ padding: '0.75rem', maxWidth: '250px' }}>
+                    <td data-label="Başlık ve Detay" style={{ padding: '0.75rem', maxWidth: '250px' }}>
                       <div style={{ fontWeight: 600 }}>{t.talep_basligi || 'Başlıksız'}</div>
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.talep_aciklamasi}>
                         {t.talep_aciklamasi || '-'}
                       </div>
                     </td>
-                    <td style={{ padding: '0.75rem', fontWeight: 600 }}>
+                    <td data-label="Miktar" style={{ padding: '0.75rem', fontWeight: 600 }}>
                       {t.tahmini_miktar ? `${t.tahmini_miktar} kg` : 'Belirtilmedi'}
                     </td>
-                    <td style={{ padding: '0.75rem', fontSize: '0.85rem' }}>
+                    <td data-label="Adres ve Konum" style={{ padding: '0.75rem', fontSize: '0.85rem' }}>
                       {t.konteyner_kodu ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary-color)' }}>
                           <MapPin size={14} /> <span>{t.konteyner_kodu} ({t.mahalle_ad})</span>
@@ -147,7 +145,7 @@ const AdminGeriDonusum = () => {
                         <div style={{ color: 'var(--text-secondary)' }}>{t.adres || 'Belirtilmedi'}</div>
                       )}
                     </td>
-                    <td style={{ padding: '0.75rem' }}>
+                    <td data-label="Durum" style={{ padding: '0.75rem' }}>
                       <span style={{
                         padding: '0.25rem 0.5rem',
                         borderRadius: '4px',
@@ -159,7 +157,7 @@ const AdminGeriDonusum = () => {
                         {statusLabels[t.durum]}
                       </span>
                     </td>
-                    <td style={{ padding: '0.75rem' }}>
+                    <td data-label="İşlemler" style={{ padding: '0.75rem' }}>
                       <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
                         {t.durum === 'bekliyor' && (
                           <>

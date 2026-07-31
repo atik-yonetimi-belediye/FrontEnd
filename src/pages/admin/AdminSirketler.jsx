@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
+import { fetchAllPages } from '../../services/pagination';
 import Button from '../../components/Button';
 import ConfirmModal from '../../components/ConfirmModal';
 import { Building, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
 import './AdminSirketler.css';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 
 const AdminSirketler = () => {
   const [sirketler, setSirketler] = useState([]);
@@ -13,6 +15,7 @@ const AdminSirketler = () => {
   // Tabs: 'bekleyen' | 'onaylandi' | 'hepsi'
   const [activeTab, setActiveTab] = useState('bekliyor');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
   // Confirm Modal state
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, variant: 'warning' });
@@ -23,10 +26,7 @@ const AdminSirketler = () => {
 
   const fetchSirketler = async () => {
     try {
-      const res = await api.get('/admin/sirketler', { params: { limit: 200 } });
-      if (res.data.success) {
-        setSirketler(res.data.data);
-      }
+      setSirketler(await fetchAllPages('/admin/sirketler'));
     } catch (err) {
       console.error("Şirketler yüklenemedi", err);
     } finally {
@@ -67,8 +67,8 @@ const AdminSirketler = () => {
     const matchesTab = activeTab === 'hepsi' ? true : s.onay_durumu === activeTab;
     if (!matchesTab) return false;
     
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
+    if (!debouncedSearchQuery) return true;
+    const q = debouncedSearchQuery.toLocaleLowerCase('tr-TR');
     return (
       s.ad?.toLowerCase().includes(q) ||
       s.mail?.toLowerCase().includes(q) ||

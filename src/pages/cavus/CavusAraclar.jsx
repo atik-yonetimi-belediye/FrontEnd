@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
+import { fetchAllPages } from '../../services/pagination';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -57,12 +58,12 @@ const CavusAraclar = () => {
 
   const fetchData = async () => {
     try {
-      const [aracRes, soforRes] = await Promise.all([
-        api.get('/cavus/araclar', { params: { limit: 200 } }),
-        api.get('/cavus/soforler', { params: { limit: 200 } })
+      const [aracItems, soforItems] = await Promise.all([
+        fetchAllPages('/cavus/araclar'),
+        fetchAllPages('/cavus/soforler')
       ]);
-      const activeAraclar = aracRes.data.data.filter(a => a.aktif_mi);
-      const activeSoforler = soforRes.data.data.filter(s => s.aktif_mi);
+      const activeAraclar = aracItems.filter(a => a.aktif_mi);
+      const activeSoforler = soforItems.filter(s => s.aktif_mi);
       
       setAraclar(activeAraclar);
       setSoforler(activeSoforler);
@@ -330,8 +331,8 @@ const CavusAraclar = () => {
                 <Input label="Plaka" placeholder="Örn: 46 ABC 123" value={plaka} onChange={handlePlakaChange} required />
                 
                 <div className="form-group">
-                  <label>Araç Görevi / Türü</label>
-                  <select className="custom-select" value={aracTuru} onChange={e=>setAracTuru(e.target.value)}>
+                  <label htmlFor="vehicle-type">Araç Görevi / Türü</label>
+                  <select id="vehicle-type" className="custom-select" value={aracTuru} onChange={e=>setAracTuru(e.target.value)}>
                     <option value="kati_atik">Katı Atık (Çöp Kamyonu)</option>
                     <option value="geri_donusum">Geri Dönüşüm Kamyonu</option>
                   </select>
@@ -384,9 +385,10 @@ const CavusAraclar = () => {
                 <Input label="Telefon" placeholder="05XX XXX XX XX" value={sTelefon} onChange={e => setSTelefon(formatPhone(e.target.value))} required />
                 
                 <div className="input-wrapper">
-                  <label className="input-label">Şifre</label>
+                  <label className="input-label" htmlFor="driver-password">Şifre</label>
                   <div style={{ position: 'relative' }}>
                     <input 
+                      id="driver-password"
                       type={showSoforPassword ? "text" : "password"}
                       placeholder="Şifre (En az 8 karakter)"
                       value={sSifre}
@@ -397,10 +399,12 @@ const CavusAraclar = () => {
                     />
                     <button 
                       type="button" 
+                      className="icon-touch-button"
                       onClick={() => setShowSoforPassword(!showSoforPassword)}
+                      aria-label={showSoforPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
                       style={{
                         position: 'absolute',
-                        right: '10px',
+                        right: '0',
                         top: '50%',
                         transform: 'translateY(-50%)',
                         background: 'none',
@@ -415,8 +419,8 @@ const CavusAraclar = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Kullanacağı Araç (Plaka)</label>
-                  <select className="custom-select" value={sAracId} onChange={e=>setSAracId(e.target.value)} required>
+                  <label htmlFor="driver-vehicle">Kullanacağı Araç (Plaka)</label>
+                  <select id="driver-vehicle" className="custom-select" value={sAracId} onChange={e=>setSAracId(e.target.value)} required>
                     <option value="">Seçiniz...</option>
                     {araclar.map(a => (
                       <option key={a.id} value={a.id}>{a.plaka} ({a.arac_turu === 'geri_donusum' ? 'Geri Dönüşüm' : 'Katı Atık'})</option>
@@ -502,8 +506,9 @@ const CavusAraclar = () => {
         onCancel={() => setTransferModal({ isOpen: false })}
       >
             <div className="form-group" style={{ textAlign: 'left', marginTop: '1rem' }}>
-              <label>Yeni Zimmetlenecek Araç</label>
+              <label htmlFor="transfer-vehicle">Yeni Zimmetlenecek Araç</label>
               <select 
+                id="transfer-vehicle"
                 className="custom-select" 
                 value={transferModal.currentAracId} 
                 onChange={e => setTransferModal(prev => ({ ...prev, currentAracId: e.target.value }))}

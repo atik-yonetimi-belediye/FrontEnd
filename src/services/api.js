@@ -9,6 +9,12 @@ const api = axios.create({
   withCredentials: true,
 });
 
+export function getApiErrorMessage(error, fallback = 'İşlem tamamlanamadı. Lütfen yeniden deneyin.') {
+  if (error?.code === 'ECONNABORTED') return 'Sunucu beklenenden uzun sürede yanıt verdi. Bağlantınızı kontrol edip yeniden deneyin.';
+  if (!error?.response) return 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edip yeniden deneyin.';
+  return error.response?.data?.message || fallback;
+}
+
 export function resolveAssetUrl(value) {
   if (!value) return '';
   if (/^https?:\/\//i.test(value)) return value;
@@ -43,6 +49,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.code === 'ECONNABORTED') {
+      error.message = 'İstek zaman aşımına uğradı.';
+    }
     if (error.response && error.response.status === 401) {
       window.dispatchEvent(new Event('auth-error'));
     }

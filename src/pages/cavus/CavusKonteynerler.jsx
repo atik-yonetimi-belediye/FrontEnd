@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
+import { fetchAllPages } from '../../services/pagination';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import Button from '../../components/Button';
@@ -8,6 +9,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { MapPin, Navigation, Clock, Trash2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import './CavusKonteynerler.css';
+import useDialogFocusTrap from '../../hooks/useDialogFocusTrap';
 
 const createIcon = (type) => {
   const color = type === 'geri_donusum' ? '#10b981' : '#3b82f6';
@@ -27,7 +29,7 @@ const LocationMarker = ({ position, setPosition }) => {
   });
 
   return position === null ? null : (
-    <Marker position={position} icon={createIcon('kati_atik')} />
+    <Marker position={position} icon={createIcon('kati_atik')} title="Seçilen yeni konteyner konumu" alt="Seçilen yeni konteyner konumu" />
   );
 };
 
@@ -64,31 +66,15 @@ const CavusKonteynerler = () => {
   const defaultCenter = [37.5858, 36.9145];
   const [mapCenter, setMapCenter] = useState(defaultCenter);
   const [mapZoom, setMapZoom] = useState(13);
+  useDialogFocusTrap(historyDialogRef, historyModalOpen, () => setHistoryModalOpen(false));
 
   useEffect(() => {
     fetchKonteynerler();
   }, []);
 
-  useEffect(() => {
-    if (!historyModalOpen) return undefined;
-    const previousActiveElement = document.activeElement;
-    historyDialogRef.current?.focus();
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') setHistoryModalOpen(false);
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      previousActiveElement?.focus?.();
-    };
-  }, [historyModalOpen]);
-
   const fetchKonteynerler = async () => {
     try {
-      const res = await api.get('/cavus/konteynerler', { params: { limit: 200 } });
-      if (res.data.success) {
-        setKonteynerler(res.data.data);
-      }
+      setKonteynerler(await fetchAllPages('/cavus/konteynerler'));
     } catch (err) {
       console.error("Konteynerler getirilemedi", err);
     } finally {
@@ -153,12 +139,10 @@ const CavusKonteynerler = () => {
   const handleViewHistory = async (konteynerId, kodu) => {
     setSelectedKodu(kodu);
     try {
-      const res = await api.get('/cavus/toplama-kayitlari', { params: { limit: 200 } });
-      if (res.data.success) {
-        const records = res.data.data.filter(r => String(r.konteyner_id) === String(konteynerId));
-        setSelectedHistory(records);
-        setHistoryModalOpen(true);
-      }
+      const items = await fetchAllPages('/cavus/toplama-kayitlari');
+      const records = items.filter(r => String(r.konteyner_id) === String(konteynerId));
+      setSelectedHistory(records);
+      setHistoryModalOpen(true);
     } catch {
       alert("Toplama geçmişi yüklenemedi.");
     }
@@ -219,6 +203,8 @@ const CavusKonteynerler = () => {
                   key={k.id} 
                   position={[k.latitude, k.longitude]} 
                   icon={createIcon(k.tur)} 
+                  title={`${k.konteyner_kodu} konteyneri`}
+                  alt={`${k.konteyner_kodu} konteyneri`}
                 />
               ))}
             </MapContainer>
@@ -232,8 +218,8 @@ const CavusKonteynerler = () => {
 
           <div className="add-form-grid">
             <div className="form-group">
-              <label>Konteyner Türü</label>
-              <select className="custom-select" value={tur} onChange={(e) => setTur(e.target.value)}>
+              <label htmlFor="container-type">Konteyner Türü</label>
+              <select id="container-type" className="custom-select" value={tur} onChange={(e) => setTur(e.target.value)}>
                 <option value="kati_atik">Katı Atık</option>
                 <option value="geri_donusum">Geri Dönüşüm</option>
               </select>
@@ -342,7 +328,7 @@ const CavusKonteynerler = () => {
               {selectedHistory.length === 0 ? (
                 <p className="text-muted text-center" style={{ padding: '1.5rem 0' }}>Toplama kaydı bulunmuyor.</p>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table className="responsive-data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '0.5rem', textAlign: 'left' }}>
                       <th style={{ padding: '0.5rem 0', fontSize: '0.85rem', fontWeight: 600 }}>Tarih</th>
@@ -354,14 +340,14 @@ const CavusKonteynerler = () => {
                   <tbody>
                     {selectedHistory.map(r => (
                       <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '0.5rem 0', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{new Date(r.tarih_saat).toLocaleString('tr-TR')}</td>
-                        <td style={{ padding: '0.5rem 0', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{r.sofor_ad_soyad || 'Bilinmiyor'}</td>
-                        <td style={{ padding: '0.5rem 0', fontSize: '0.85rem' }}>
+                        <td data-label="Tarih" style={{ padding: '0.5rem 0', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{new Date(r.tarih_saat).toLocaleString('tr-TR')}</td>
+                        <td data-label="Şoför" style={{ padding: '0.5rem 0', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{r.sofor_ad_soyad || 'Bilinmiyor'}</td>
+                        <td data-label="Durum" style={{ padding: '0.5rem 0', fontSize: '0.85rem' }}>
                           <span className={`status-badge ${r.durum}`} style={{ padding: '0.15rem 0.35rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, color: '#fff', backgroundColor: r.durum === 'toplandi' ? '#10b981' : '#ef4444' }}>
                             {r.durum === 'toplandi' ? 'Toplandı' : 'Atlandı'}
                           </span>
                         </td>
-                        <td style={{ padding: '0.5rem 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{r.sebep ? `${r.sebep}${r.diger_aciklama ? ` (${r.diger_aciklama})` : ''}` : '-'}</td>
+                        <td data-label="Açıklama / Sebep" style={{ padding: '0.5rem 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{r.sebep ? `${r.sebep}${r.diger_aciklama ? ` (${r.diger_aciklama})` : ''}` : '-'}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -8,6 +8,7 @@ import LightboxModal from '../../components/LightboxModal';
 import { useToast } from '../../components/useToast';
 import { CheckCircle, Clock, MapPin, Search, Trash2, Map, Eye } from 'lucide-react';
 import './AdminSikayetler.css';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 
 const kategoriLabels = {
   konteyner_dolu: 'Konteyner Dolu / Taştı',
@@ -29,6 +30,7 @@ const AdminSikayetler = () => {
   const [filterTur, setFilterTur] = useState('hepsi');
   const [filterKategori, setFilterKategori] = useState('hepsi');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
   // Modals
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, variant: 'warning' });
@@ -114,8 +116,8 @@ const AdminSikayetler = () => {
   };
 
   const filteredSikayetler = sikayetler.filter(s => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
+    if (!debouncedSearchQuery) return true;
+    const q = debouncedSearchQuery.toLocaleLowerCase('tr-TR');
     return (
       s.vatandas_ad_soyad?.toLowerCase().includes(q) ||
       s.vatandas_telefon?.includes(q) ||
@@ -253,7 +255,13 @@ const AdminSikayetler = () => {
                         
                         const imgSrc = resolveAssetUrl(url);
                         return (
-                          <div key={idx} style={{ position: 'relative', cursor: 'pointer' }} onClick={() => openLightbox(s.fotograflar, idx)}>
+                          <button
+                            type="button"
+                            key={idx}
+                            className="complaint-photo-button"
+                            onClick={() => openLightbox(s.fotograflar, idx)}
+                            aria-label={`${idx + 1}. şikâyet fotoğrafını büyüt`}
+                          >
                             <img 
                               src={imgSrc} 
                               alt={`Şikayet Foto ${idx+1}`} 
@@ -263,7 +271,7 @@ const AdminSikayetler = () => {
                             <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', borderRadius: '50%', padding: '2px' }}>
                               <Eye size={12} />
                             </div>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>

@@ -34,6 +34,8 @@
   align-items: center;
   margin-bottom: 2rem;
   position: relative;
+  padding: 0;
+  list-style: none;
 }
 
 .stepper-bar::before {
@@ -50,11 +52,27 @@
 .step-item {
   position: relative;
   z-index: 2;
+  flex: 1;
+}
+
+.step-button {
+  width: 100%;
+  min-height: 52px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   cursor: pointer;
+}
+
+.step-button:disabled {
+  opacity: 1;
+  cursor: default;
 }
 
 .step-number {
@@ -119,6 +137,7 @@
   font-family: inherit;
   font-size: 0.95rem;
   outline: none;
+  min-height: 44px;
   transition: all var(--transition-fast);
 }
 
@@ -225,6 +244,8 @@
 .back-link {
   display: flex;
   align-items: center;
+  min-height: 44px;
+  padding: 0.5rem 0;
   gap: 0.5rem;
   color: var(--text-secondary);
   text-decoration: none;
@@ -286,19 +307,19 @@
 
 .photo-delete-btn {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 0;
+  right: 0;
   background-color: rgba(239, 68, 68, 0.9);
   color: #fff;
   border: none;
-  width: 20px;
-  height: 20px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: 1.25rem;
   font-weight: bold;
 }
 

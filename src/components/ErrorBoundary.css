@@ -1,0 +1,5 @@
+.fatal-error { min-height: 100dvh; display: grid; place-items: center; padding: 1.25rem; background: var(--bg-primary); }
+.fatal-error-card { width: min(100%, 460px); display: grid; justify-items: center; gap: 1rem; padding: clamp(1.5rem, 6vw, 2.5rem); text-align: center; border: 1px solid var(--border-color); border-radius: var(--radius-xl); background: var(--bg-secondary); box-shadow: var(--shadow-lg); }
+.fatal-error-code { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--danger-color); font-size: 1.5rem; font-weight: 800; }
+.fatal-error-card h1 { margin: 0; font-size: clamp(1.35rem, 5vw, 1.75rem); }
+.fatal-error-card p { margin: 0; color: var(--text-secondary); line-height: 1.6; }

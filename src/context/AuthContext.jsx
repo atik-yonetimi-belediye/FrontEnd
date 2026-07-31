@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import AuthContext from './authContextStore';
+import { AppBootScreen } from '../components/AppState';
+import { clearPrivateCaches } from '../services/offlineQueue';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -31,18 +33,17 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const login = async (role, credentials) => {
+  const login = async (credentials) => {
     try {
-      // role can be: 'admin', 'cavus', 'sofor', 'sirket'
-      const response = await api.post(`/auth/${role}/login`, credentials);
+      const response = await api.post('/auth/login', credentials);
       if (response.data.success) {
         const { user: newUser } = response.data.data;
-        if (newUser.role !== role) {
-          throw new Error('Sunucu rolü ile istenen rol eşleşmiyor.');
+        if (!['admin', 'cavus', 'sofor', 'sirket'].includes(newUser?.role)) {
+          throw new Error('Sunucudan geçersiz kullanıcı rolü döndü.');
         }
         
         setUser(newUser);
-        return { success: true };
+        return { success: true, user: newUser };
       }
     } catch (error) {
       return { 
@@ -56,13 +57,14 @@ export const AuthProvider = ({ children }) => {
     try {
       await api.post('/auth/logout');
     } finally {
+      await clearPrivateCaches().catch(() => {});
       setUser(null);
     }
   };
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout }}>
-      {!loading && children}
+      {loading ? <AppBootScreen message="Oturumunuz güvenli şekilde kontrol ediliyor…" /> : children}
     </AuthContext.Provider>
   );
 };

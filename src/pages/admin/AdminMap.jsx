@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import DashboardLayout from '../../components/DashboardLayout';
-import api from '../../services/api';
+import { fetchAllPages } from '../../services/pagination';
 import 'leaflet/dist/leaflet.css';
 import './AdminMap.css';
 
@@ -43,13 +43,7 @@ const AdminMap = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const kontRes = await api.get('/konteynerler', {
-          params: { aktif_mi: true, limit: 200 }
-        });
-        
-        if (kontRes.data.success) {
-          setKonteynerler(kontRes.data.data);
-        }
+        setKonteynerler(await fetchAllPages('/konteynerler', { params: { aktif_mi: true } }));
         
       } catch (err) {
         console.error("Harita verisi yüklenemedi", err);
@@ -112,6 +106,8 @@ const AdminMap = () => {
                   key={`k-${k.id}`} 
                   position={[k.latitude, k.longitude]}
                   icon={createIcon(k.tur)}
+                  title={`${k.konteyner_kodu} konteyneri`}
+                  alt={`${k.konteyner_kodu} konteyneri`}
                 >
                     <Popup className="custom-popup">
                       <div className="popup-content">

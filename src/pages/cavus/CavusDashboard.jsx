@@ -1,49 +1,36 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
 import { Users, Truck, MapPin } from 'lucide-react';
 import './CavusDashboard.css';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAllPages } from '../../services/pagination';
+import { ContentState } from '../../components/AppState';
 
 const CavusDashboard = () => {
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
-  const [stats, setStats] = useState({ konteyner: 0, arac: 0, sofor: 0 });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [profileRes, containersRes, vehiclesRes, driversRes] = await Promise.all([
-          api.get('/cavus/me'),
-          api.get('/cavus/konteynerler', { params: { limit: 200 } }),
-          api.get('/cavus/araclar', { params: { limit: 200 } }),
-          api.get('/cavus/soforler', { params: { limit: 200 } })
-        ]);
-
-        if (profileRes.data.success) {
-          setProfile(profileRes.data.data);
-        }
-
-        const activeContainers = containersRes.data.success ? containersRes.data.data.filter(k => k.aktif_mi !== false) : [];
-        const activeVehicles = vehiclesRes.data.success ? vehiclesRes.data.data.filter(a => a.aktif_mi) : [];
-        const activeDrivers = driversRes.data.success ? driversRes.data.data.filter(s => s.aktif_mi) : [];
-
-        setStats({
-          konteyner: activeContainers.length,
-          arac: activeVehicles.length,
-          sofor: activeDrivers.length
-        });
-      } catch (err) {
-        console.error("Veriler yüklenemedi", err);
-        setProfile({ ad_soyad: 'Çavuş', mahalle_ad: 'Haydarbey' });
-        setStats({ konteyner: 0, arac: 0, sofor: 0 });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  const { data, isPending: loading, isError, refetch } = useQuery({
+    queryKey: ['cavus', 'dashboard'],
+    queryFn: async ({ signal }) => {
+      const [profileRes, containers, vehicles, drivers] = await Promise.all([
+        api.get('/cavus/me', { signal }),
+        fetchAllPages('/cavus/konteynerler', { signal }),
+        fetchAllPages('/cavus/araclar', { signal }),
+        fetchAllPages('/cavus/soforler', { signal }),
+      ]);
+      return {
+        profile: profileRes.data.data,
+        stats: {
+          konteyner: containers.filter((item) => item.aktif_mi !== false).length,
+          arac: vehicles.filter((item) => item.aktif_mi).length,
+          sofor: drivers.filter((item) => item.aktif_mi).length,
+        },
+      };
+    },
+  });
+  const profile = data?.profile;
+  const stats = data?.stats ?? { konteyner: 0, arac: 0, sofor: 0 };
 
   if (loading) {
     return (
@@ -67,6 +54,10 @@ const CavusDashboard = () => {
     );
   }
 
+  if (isError || !profile) {
+    return <DashboardLayout title="Çavuş Özeti"><ContentState type="error" title="Bölge bilgileri yüklenemedi" message="Bağlantınızı kontrol edip yeniden deneyin." onRetry={refetch} /></DashboardLayout>;
+  }
+
   return (
     <DashboardLayout title="Çavuş Özeti">
       <div className="cavus-dashboard">
@@ -84,7 +75,7 @@ const CavusDashboard = () => {
         </div>
 
         <div className="stats-grid mt-4">
-          <div 
+          <button type="button"
             className="stat-card glass-panel cursor-pointer-card"
             onClick={() => navigate('/cavus/konteynerler')}
             style={{ cursor: 'pointer' }}
@@ -94,9 +85,9 @@ const CavusDashboard = () => {
               <h4>Konteynerler</h4>
               <h2>{stats.konteyner}</h2>
             </div>
-          </div>
+          </button>
           
-          <div 
+          <button type="button"
             className="stat-card glass-panel cursor-pointer-card"
             onClick={() => navigate('/cavus/araclar')}
             style={{ cursor: 'pointer' }}
@@ -106,9 +97,9 @@ const CavusDashboard = () => {
               <h4>Araçlar</h4>
               <h2>{stats.arac}</h2>
             </div>
-          </div>
+          </button>
           
-          <div 
+          <button type="button"
             className="stat-card glass-panel cursor-pointer-card"
             onClick={() => navigate('/cavus/araclar')}
             style={{ cursor: 'pointer' }}
@@ -118,7 +109,7 @@ const CavusDashboard = () => {
               <h4>Şoförler</h4>
               <h2>{stats.sofor}</h2>
             </div>
-          </div>
+          </button>
         </div>
 
         <div className="dashboard-sections mt-4">

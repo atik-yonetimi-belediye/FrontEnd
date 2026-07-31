@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Camera, AlertCircle, CheckCircle, ArrowLeft, Sun, Moon, MapPin, User, FileText, ChevronRight, ChevronLeft, Navigation } from 'lucide-react';
+import { AlertCircle, CheckCircle, ArrowLeft, Sun, Moon, MapPin, User, ChevronRight, ChevronLeft, Navigation } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import ConfirmModal from '../components/ConfirmModal';
 import { useToast } from '../components/useToast';
-import api from '../services/api';
+import api, { getApiErrorMessage } from '../services/api';
+import { fetchAllPages } from '../services/pagination';
+import ComplaintDetailStep from '../components/ComplaintDetailStep';
+import { preparePhotoForUpload } from '../utils/imageProcessing';
 import 'leaflet/dist/leaflet.css';
 import './ComplaintForm.css';
 
@@ -40,18 +43,17 @@ const formatPhone = (value) => {
 };
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-
-const FilePreview = ({ file, alt }) => {
-  const [previewUrl, setPreviewUrl] = useState('');
-
-  useEffect(() => {
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-
-  return previewUrl ? <img src={previewUrl} alt={alt} /> : null;
+const DRAFT_KEY = 'atik-complaint-draft-v1';
+const EMPTY_FORM = {
+  vatandas_ad_soyad: '', vatandas_telefon: '', konteyner_id: '', sikayet_turu: 'kati_atik', sikayet_kategorisi: '', sikayet_metni: ''
 };
+
+function readDraft() {
+  try {
+    const draft = JSON.parse(localStorage.getItem(DRAFT_KEY));
+    return draft && typeof draft === 'object' ? { ...EMPTY_FORM, ...draft } : EMPTY_FORM;
+  } catch { return EMPTY_FORM; }
+}
 
 const ComplaintForm = () => {
   const navigate = useNavigate();
@@ -59,14 +61,7 @@ const ComplaintForm = () => {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [currentStep, setCurrentStep] = useState(1);
   
-  const [formData, setFormData] = useState({
-    vatandas_ad_soyad: '',
-    vatandas_telefon: '',
-    konteyner_id: '',
-    sikayet_turu: 'kati_atik',
-    sikayet_kategorisi: '',
-    sikayet_metni: ''
-  });
+  const [formData, setFormData] = useState(readDraft);
   
   const [nameError, setNameError] = useState('');
   const [phoneError, setPhoneError] = useState('');
@@ -87,14 +82,15 @@ const ComplaintForm = () => {
   }, [theme]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => localStorage.setItem(DRAFT_KEY, JSON.stringify(formData)), 350);
+    return () => window.clearTimeout(timer);
+  }, [formData]);
+
+  useEffect(() => {
     const fetchContainers = async () => {
       try {
-        const res = await api.get('/konteynerler', {
-          params: { aktif_mi: true, limit: 200 }
-        });
-        if (res.data.success) {
-          setContainers(res.data.data);
-        }
+        const items = await fetchAllPages('/konteynerler', { params: { aktif_mi: true } });
+        setContainers(items);
       } catch (err) {
         console.error("Konteynerler yüklenemedi", err);
       }
@@ -202,7 +198,7 @@ const ComplaintForm = () => {
     }
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const selectedFiles = Array.from(e.target.files);
     const invalidFile = selectedFiles.find(
       file => !ALLOWED_IMAGE_TYPES.has(file.type) || file.size > 5 * 1024 * 1024
@@ -217,9 +213,15 @@ const ComplaintForm = () => {
       e.target.value = '';
       return;
     }
-    setFiles(prev => [...prev, ...selectedFiles]);
-    setError('');
-    e.target.value = '';
+    try {
+      const preparedFiles = await Promise.all(selectedFiles.map(preparePhotoForUpload));
+      setFiles(prev => [...prev, ...preparedFiles]);
+      setError('');
+    } catch {
+      setError('Fotoğraf hazırlanamadı. Lütfen farklı bir fotoğraf seçip yeniden deneyin.');
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const handleRemoveFile = (index) => {
@@ -282,12 +284,13 @@ const ComplaintForm = () => {
 
       const res = await api.post('/sikayetler', data);
       if (res.data.success) {
+        localStorage.removeItem(DRAFT_KEY);
         setSuccess(true);
         showToast("Şikayetiniz başarıyla belediyemize iletildi.", "success");
         setTimeout(() => navigate('/'), 3000);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Bir hata oluştu. Lütfen tekrar deneyin.');
+      setError(getApiErrorMessage(err, 'Şikâyet gönderilemedi. Lütfen tekrar deneyin.'));
     } finally {
       setLoading(false);
     }
@@ -300,19 +303,19 @@ const ComplaintForm = () => {
 
   if (success) {
     return (
-      <div className="container flex-center" style={{ minHeight: '100vh' }}>
+      <main className="container flex-center" id="main-content" tabIndex={-1} style={{ minHeight: '100vh' }}>
         <div className="success-card glass-panel animate-fade-in">
           <CheckCircle size={64} className="success-icon" />
           <h2>Şikayetiniz Alındı</h2>
           <p>Geri bildiriminiz için teşekkür ederiz. Ekiplerimiz en kısa sürede ilgilenecektir.</p>
           <Button variant="outline" onClick={() => navigate('/')}>Ana Sayfaya Dön</Button>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="complaint-page">
+    <main className="complaint-page" id="main-content" tabIndex={-1}>
       <div className="container form-container animate-fade-in">
         
         {/* Navigation & Theme Header */}
@@ -321,7 +324,7 @@ const ComplaintForm = () => {
             <ArrowLeft size={20} />
             <span>Geri Dön</span>
           </Link>
-          <button className="theme-toggle-btn" onClick={toggleTheme} title="Tema Değiştir">
+          <button className="theme-toggle-btn" onClick={toggleTheme} title="Tema Değiştir" aria-label={theme === 'light' ? 'Koyu temaya geç' : 'Açık temaya geç'}>
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
         </div>
@@ -332,23 +335,29 @@ const ComplaintForm = () => {
         </div>
 
         {/* Stepper Bar */}
-        <div className="stepper-bar">
-          <div className={`step-item ${currentStep === 1 ? 'active' : currentStep > 1 ? 'completed' : ''}`} onClick={() => currentStep > 1 && setCurrentStep(1)}>
-            <div className="step-number">{currentStep > 1 ? '✓' : '1'}</div>
-            <span className="step-label">İletişim</span>
-          </div>
-          <div className={`step-item ${currentStep === 2 ? 'active' : currentStep > 2 ? 'completed' : ''}`} onClick={() => currentStep > 2 && setCurrentStep(2)}>
-            <div className="step-number">{currentStep > 2 ? '✓' : '2'}</div>
-            <span className="step-label">Konum</span>
-          </div>
-          <div className={`step-item ${currentStep === 3 ? 'active' : ''}`}>
-            <div className="step-number">3</div>
-            <span className="step-label">Detay & Fotoğraf</span>
-          </div>
-        </div>
+        <ol className="stepper-bar" aria-label="Şikâyet formu adımları">
+          <li className={`step-item ${currentStep === 1 ? 'active' : currentStep > 1 ? 'completed' : ''}`}>
+            <button type="button" className="step-button" onClick={() => currentStep > 1 && setCurrentStep(1)} disabled={currentStep === 1} aria-current={currentStep === 1 ? 'step' : undefined}>
+              <span className="step-number" aria-hidden="true">{currentStep > 1 ? '✓' : '1'}</span>
+              <span className="step-label">İletişim</span>
+            </button>
+          </li>
+          <li className={`step-item ${currentStep === 2 ? 'active' : currentStep > 2 ? 'completed' : ''}`}>
+            <button type="button" className="step-button" onClick={() => currentStep > 2 && setCurrentStep(2)} disabled={currentStep <= 2} aria-current={currentStep === 2 ? 'step' : undefined}>
+              <span className="step-number" aria-hidden="true">{currentStep > 2 ? '✓' : '2'}</span>
+              <span className="step-label">Konum</span>
+            </button>
+          </li>
+          <li className={`step-item ${currentStep === 3 ? 'active' : ''}`}>
+            <button type="button" className="step-button" disabled aria-current={currentStep === 3 ? 'step' : undefined}>
+              <span className="step-number" aria-hidden="true">3</span>
+              <span className="step-label">Detay & Fotoğraf</span>
+            </button>
+          </li>
+        </ol>
 
         {error && (
-          <div className="error-banner">
+          <div className="error-banner" role="alert">
             <AlertCircle size={20} />
             <span>{error}</span>
           </div>
@@ -432,6 +441,8 @@ const ComplaintForm = () => {
                         key={c.id} 
                         position={[c.latitude, c.longitude]}
                         icon={createIcon(c.tur)}
+                        title={`${c.konteyner_kodu} konteyneri`}
+                        alt={`${c.konteyner_kodu} konteyneri`}
                         eventHandlers={{
                           click: () => {
                             setFormData(prev => ({ 
@@ -457,8 +468,9 @@ const ComplaintForm = () => {
               </div>
               
               <div className="form-group">
-                <label className="input-label">Konteyner Listesinden Seçin</label>
+                <label className="input-label" htmlFor="complaint-container">Konteyner Listesinden Seçin</label>
                 <select 
+                  id="complaint-container"
                   className="custom-select" 
                   name="konteyner_id"
                   value={formData.konteyner_id}
@@ -475,88 +487,7 @@ const ComplaintForm = () => {
           )}
 
           {/* STEP 3: Şikayet Detayı & Fotoğraf */}
-          {currentStep === 3 && (
-            <div className="step-content animate-fade-in">
-              <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <FileText size={20} style={{ color: 'var(--primary-color)' }} /> Adım 3: Şikayet Detayı ve Fotoğraf
-              </h3>
-
-              <div className="form-grid">
-                <div className="form-group">
-                  <label className="input-label">Atık Türü</label>
-                  <select 
-                    className="custom-select"
-                    name="sikayet_turu"
-                    value={formData.sikayet_turu}
-                    onChange={handleInputChange}
-                    disabled={!!formData.konteyner_id}
-                  >
-                    <option value="kati_atik">Katı Atık (Çöp)</option>
-                    <option value="geri_donusum">Geri Dönüşüm</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="input-label">Şikayet Kategorisi</label>
-                  <select 
-                    className="custom-select"
-                    name="sikayet_kategorisi"
-                    value={formData.sikayet_kategorisi}
-                    onChange={handleInputChange}
-                    required
-                  >
-                    <option value="">Seçiniz</option>
-                    <option value="konteyner_dolu">Konteyner Dolu / Taştı</option>
-                    <option value="konteyner_kirik">Konteyner Kırık / Hasarlı</option>
-                    <option value="kotu_koku">Kötü Koku</option>
-                    <option value="cop_tasmasi">Çöp Taşması</option>
-                    <option value="zamaninda_toplanmadi">Zamanında Toplanmadı</option>
-                    <option value="diger">Diğer</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="input-label">Şikayet Detayı</label>
-                <textarea 
-                  className="custom-textarea" 
-                  name="sikayet_metni"
-                  rows="4" 
-                  placeholder="Lütfen karşılaştığınız sorunu detaylıca anlatın..."
-                  value={formData.sikayet_metni}
-                  onChange={handleInputChange}
-                  required
-                ></textarea>
-              </div>
-
-              <div className="file-upload-section">
-                <label className="input-label">Fotoğraf Ekle (Maksimum 3 adet)</label>
-                {files.length < 3 && (
-                  <label className="file-upload-box">
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={handleFileChange}
-                      className="hidden-file-input"
-                    />
-                    <Camera size={32} className="upload-icon" />
-                    <span>Fotoğraf seçmek için tıklayın</span>
-                  </label>
-                )}
-
-                {files.length > 0 && (
-                  <div className="photo-preview-grid">
-                    {files.map((file, idx) => (
-                      <div key={idx} className="photo-preview-item animate-fade-in">
-                        <FilePreview file={file} alt={`Önizleme ${idx + 1}`} />
-                        <button type="button" className="photo-delete-btn" onClick={() => handleRemoveFile(idx)}>×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {currentStep === 3 && <ComplaintDetailStep formData={formData} files={files} onInputChange={handleInputChange} onFileChange={handleFileChange} onRemoveFile={handleRemoveFile} />}
 
           {/* Wizard Action Buttons */}
           <div className="wizard-actions">
@@ -590,7 +521,7 @@ const ComplaintForm = () => {
         onConfirm={() => setModalOpen(false)}
         onCancel={() => setModalOpen(false)}
       />
-    </div>
+    </main>
   );
 };
 

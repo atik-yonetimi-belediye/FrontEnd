@@ -2,11 +2,18 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
+import { getRoleHomePath } from './utils/authRoutes';
+import { QueryClientProvider } from '@tanstack/react-query';
+import queryClient from './services/queryClient';
+import ErrorBoundary from './components/ErrorBoundary';
+import { AppBootScreen } from './components/AppState';
+import PwaStatus from './components/PwaStatus';
 
 // Public Immediate Loaded Pages
 import LandingPage from './pages/LandingPage';
 import ComplaintForm from './pages/ComplaintForm';
 import LoginPage from './pages/LoginPage';
+import OfflinePage from './pages/OfflinePage';
 
 // Dynamic Lazy Loaded Subpages
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
@@ -27,34 +34,19 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={getRoleHomePath(user.role)} replace />;
   }
   return children;
 };
 
-const LoadingSpinner = () => (
-  <div style={{
-    display: 'flex',
-    height: '100vh',
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'var(--bg-primary)',
-    color: 'var(--primary-color)',
-    fontWeight: 600,
-    fontSize: '1.1rem'
-  }}>
-    <div className="animate-fade-in">Yükleniyor...</div>
-  </div>
-);
-
 const AppRoutes = () => {
   return (
-    <Suspense fallback={<LoadingSpinner />}>
+    <Suspense fallback={<AppBootScreen message="Ekran hazırlanıyor…" />}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/sikayet-olustur" element={<ComplaintForm />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/cevrimdisi" element={<OfflinePage />} />
         
         <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/harita" element={<ProtectedRoute allowedRoles={['admin']}><AdminMap /></ProtectedRoute>} />
@@ -80,13 +72,19 @@ import { ToastProvider } from './components/ToastContext';
 
 function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <Router>
-          <AppRoutes />
-        </Router>
-      </ToastProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <ToastProvider>
+            <Router>
+              <a className="skip-link" href="#main-content">Ana içeriğe geç</a>
+              <AppRoutes />
+              <PwaStatus />
+            </Router>
+          </ToastProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

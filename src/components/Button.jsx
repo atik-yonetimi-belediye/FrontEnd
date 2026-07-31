@@ -1,14 +1,18 @@
 import React from 'react';
 import './Button.css';
 
-const Button = ({ children, variant = 'primary', size = 'md', className = '', ...props }) => {
+const Button = ({ children, variant = 'primary', size = 'md', className = '', as: Component = 'button', ...props }) => {
+  const componentProps = Component === 'button'
+    ? { type: props.type || 'button', ...props }
+    : props;
+
   return (
-    <button 
+    <Component
       className={`custom-btn btn-${variant} btn-${size} ${className}`}
-      {...props}
+      {...componentProps}
     >
       {children}
-    </button>
+    </Component>
   );
 };
 

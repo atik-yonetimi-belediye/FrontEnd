@@ -1,31 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
 import { Users, Truck, Map, AlertTriangle, TrendingUp, Clock, CheckCircle2, Building } from 'lucide-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import './AdminDashboard.css';
+import { useQuery } from '@tanstack/react-query';
+import { ContentState } from '../../components/AppState';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const res = await api.get('/admin/dashboard');
-        if (res.data.success) {
-          setDashboardData(res.data.data);
-        }
-      } catch (err) {
-        console.error("Yönetici özeti verisi alınamadı", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDashboardData();
-  }, []);
+  const { data: dashboardData, isPending: loading, isError, refetch } = useQuery({
+    queryKey: ['admin', 'dashboard'],
+    queryFn: async ({ signal }) => {
+      const response = await api.get('/admin/dashboard', { signal });
+      return response.data.data;
+    },
+  });
 
   if (loading) {
     return (
@@ -44,7 +35,7 @@ const AdminDashboard = () => {
       </DashboardLayout>
     );
   }
-  if (!dashboardData) return <DashboardLayout title="Yönetici Özeti"><p>Veriler yüklenirken bir sorun oluştu.</p></DashboardLayout>;
+  if (isError || !dashboardData) return <DashboardLayout title="Yönetici Özeti"><ContentState type="error" title="Yönetici özeti yüklenemedi" message="Bağlantınızı kontrol edip yeniden deneyin." onRetry={refetch} /></DashboardLayout>;
 
   const {
     konteynerler,
@@ -86,7 +77,7 @@ const AdminDashboard = () => {
   return (
     <DashboardLayout title="Yönetici Özeti">
       <div className="stats-grid">
-        <div 
+        <button type="button"
           className="stat-card glass-panel cursor-pointer-card" 
           onClick={() => navigate('/admin/personel')}
           style={{ cursor: 'pointer' }}
@@ -97,9 +88,9 @@ const AdminDashboard = () => {
             <p>{cavuslar.aktif_cavus || 0} Çavuş, {soforler.aktif_sofor || 0} Şoför</p>
             <span className="trend-badge up"><TrendingUp size={12} /> %{personnelRate} Aktif Kadro</span>
           </div>
-        </div>
+        </button>
 
-        <div 
+        <button type="button"
           className="stat-card glass-panel cursor-pointer-card" 
           onClick={() => navigate('/admin/harita')}
           style={{ cursor: 'pointer' }}
@@ -110,9 +101,9 @@ const AdminDashboard = () => {
             <p>{konteynerler.toplam_konteyner || 0} Toplam ({konteynerler.aktif_konteyner || 0} Aktif)</p>
             <span className="trend-badge up"><TrendingUp size={12} /> %{containerRate} Aktif</span>
           </div>
-        </div>
+        </button>
 
-        <div 
+        <button type="button"
           className="stat-card glass-panel cursor-pointer-card" 
           onClick={() => navigate('/admin/sirketler')}
           style={{ cursor: 'pointer' }}
@@ -123,9 +114,9 @@ const AdminDashboard = () => {
             <p>{sirketler.bekleyen_sirket || 0} Bekleyen Başvuru</p>
             <span className="trend-badge down">⏳ İnceleniyor</span>
           </div>
-        </div>
+        </button>
 
-        <div 
+        <button type="button"
           className="stat-card glass-panel cursor-pointer-card" 
           onClick={() => navigate('/admin/sikayetler')}
           style={{ cursor: 'pointer' }}
@@ -138,7 +129,7 @@ const AdminDashboard = () => {
             <p>{sikayetler.toplam_sikayet || 0} Toplam ({sikayetler.bekleyen_sikayet || 0} Bekleyen)</p>
             <span className="trend-badge up"><TrendingUp size={12} /> %{complaintRate} Çözüm Oranı</span>
           </div>
-        </div>
+        </button>
       </div>
 
       <div className="charts-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>

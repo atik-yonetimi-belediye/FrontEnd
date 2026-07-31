@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
 import Button from '../../components/Button';
@@ -6,10 +6,17 @@ import Input from '../../components/Input';
 import ConfirmModal from '../../components/ConfirmModal';
 import { PlusCircle, FileText, CheckCircle, Clock, XCircle, Edit } from 'lucide-react';
 import './SirketDashboard.css';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAllPages } from '../../services/pagination';
+import { ContentState } from '../../components/AppState';
 
 const SirketDashboard = () => {
-  const [talepler, setTalepler] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const queryKey = ['sirket', 'geri-donusum-talepleri'];
+  const { data: talepler = [], isPending: loading, isError, refetch } = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => fetchAllPages('/sirket/geri-donusum-talepleri', { signal }),
+  });
   
   const [formOpen, setFormOpen] = useState(false);
   const [editingTalep, setEditingTalep] = useState(null);
@@ -22,25 +29,6 @@ const SirketDashboard = () => {
   });
 
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, variant: 'warning' });
-
-  useEffect(() => {
-    fetchTalepler();
-  }, []);
-
-  const fetchTalepler = async () => {
-    try {
-      const res = await api.get('/sirket/geri-donusum-talepleri', {
-        params: { limit: 200 }
-      });
-      if (res.data.success) {
-        setTalepler(res.data.data);
-      }
-    } catch (err) {
-      console.error("Talepler getirilemedi", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -83,7 +71,7 @@ const SirketDashboard = () => {
       setFormOpen(false);
       setEditingTalep(null);
       setFormData({ talep_basligi: '', talep_aciklamasi: '', tahmini_miktar: '', adres: '' });
-      fetchTalepler();
+      await queryClient.invalidateQueries({ queryKey });
     } catch (err) {
       alert("İşlem gerçekleştirilemedi: " + (err.response?.data?.message || err.message));
     }
@@ -99,7 +87,7 @@ const SirketDashboard = () => {
       onConfirm: async () => {
         try {
           await api.patch(`/sirket/geri-donusum-talepleri/${id}/cancel`);
-          setTalepler(prev => prev.map(t => t.id === id ? { ...t, durum: 'iptal_edildi' } : t));
+          queryClient.setQueryData(queryKey, (previous = []) => previous.map(t => t.id === id ? { ...t, durum: 'iptal_edildi' } : t));
           setConfirmModal({ isOpen: false });
         } catch {
           alert("Talep iptal edilemedi.");
@@ -136,7 +124,8 @@ const SirketDashboard = () => {
     return map[durum] || durum;
   };
 
-  if (loading) return <DashboardLayout title="Taleplerim"><p>Yükleniyor...</p></DashboardLayout>;
+  if (loading) return <DashboardLayout title="Taleplerim"><div className="skeleton" style={{ minHeight: 220 }} /></DashboardLayout>;
+  if (isError) return <DashboardLayout title="Taleplerim"><ContentState type="error" title="Talepler yüklenemedi" message="Bağlantınızı kontrol edip yeniden deneyin." onRetry={refetch} /></DashboardLayout>;
 
   return (
     <DashboardLayout title="Geri Dönüşüm Talepleri">
@@ -158,12 +147,12 @@ const SirketDashboard = () => {
               <Input label="Talep Başlığı" name="talep_basligi" value={formData.talep_basligi} onChange={handleInputChange} required />
               <Input label="Tahmini Miktar (kg)" type="number" step="0.1" name="tahmini_miktar" value={formData.tahmini_miktar} onChange={handleInputChange} required />
               <div className="form-group" style={{gridColumn: '1 / -1'}}>
-                <label className="input-label">Açıklama</label>
-                <textarea className="custom-textarea" name="talep_aciklamasi" value={formData.talep_aciklamasi} onChange={handleInputChange} required style={{ width: '100%', minHeight: '70px', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                <label className="input-label" htmlFor="request-description">Açıklama</label>
+                <textarea id="request-description" className="custom-textarea" name="talep_aciklamasi" value={formData.talep_aciklamasi} onChange={handleInputChange} required style={{ width: '100%', minHeight: '70px', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
               </div>
               <div className="form-group" style={{gridColumn: '1 / -1'}}>
-                <label className="input-label">Adres</label>
-                <textarea className="custom-textarea" name="adres" value={formData.adres} onChange={handleInputChange} required style={{ width: '100%', minHeight: '70px', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                <label className="input-label" htmlFor="request-address">Adres</label>
+                <textarea id="request-address" className="custom-textarea" name="adres" value={formData.adres} onChange={handleInputChange} required style={{ width: '100%', minHeight: '70px', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
               </div>
               <div className="form-actions" style={{gridColumn: '1 / -1', display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem'}}>
                 <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>İptal</Button>
@@ -174,7 +163,7 @@ const SirketDashboard = () => {
         )}
 
         <div className="table-container glass-panel" style={{ padding: '1.5rem', overflowX: 'auto' }}>
-          <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <table className="custom-table responsive-data-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
                 <th style={{ padding: '0.75rem' }}>Talep Başlığı</th>
@@ -190,15 +179,15 @@ const SirketDashboard = () => {
               ) : (
                 talepler.map(t => (
                   <tr key={t.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <td className="font-medium" style={{ padding: '0.75rem', fontWeight: 600 }}>{t.talep_basligi}</td>
-                    <td style={{ padding: '0.75rem' }}>{t.tahmini_miktar ? `${t.tahmini_miktar} kg` : '-'}</td>
-                    <td className="text-muted" style={{ padding: '0.75rem', color: 'var(--text-secondary)' }}>{formatDate(t.tarih_saat || t.created_at || t.olusturulma_tarihi)}</td>
-                    <td style={{ padding: '0.75rem' }}>
+                    <td data-label="Talep Başlığı" className="font-medium" style={{ padding: '0.75rem', fontWeight: 600 }}>{t.talep_basligi}</td>
+                    <td data-label="Miktar">{t.tahmini_miktar ? `${t.tahmini_miktar} kg` : '-'}</td>
+                    <td data-label="Tarih" className="text-muted" style={{ padding: '0.75rem', color: 'var(--text-secondary)' }}>{formatDate(t.tarih_saat || t.created_at || t.olusturulma_tarihi)}</td>
+                    <td data-label="Durum" style={{ padding: '0.75rem' }}>
                       <div className="status-badge" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         {getStatusIcon(t.durum)} <span>{getStatusLabel(t.durum)}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '0.75rem' }}>
+                    <td data-label="İşlemler" style={{ padding: '0.75rem' }}>
                       {t.durum === 'bekliyor' ? (
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <Button size="sm" variant="outline" onClick={() => openEditForm(t)} title="Düzenle">
