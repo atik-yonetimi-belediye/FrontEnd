@@ -7,7 +7,8 @@ COPY . .
 RUN npm run build
 
 # Production Nginx Stage
-FROM nginx:stable-alpine
+FROM nginx:stable-alpine-slim
+RUN apk upgrade --no-cache libcrypto3 libssl3
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

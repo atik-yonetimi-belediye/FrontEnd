@@ -12,6 +12,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     reducedMotion: 'reduce',
+    serviceWorkers: 'block',
   },
   webServer: process.env.E2E_BASE_URL ? undefined : {
     command: 'npm run preview -- --host 127.0.0.1 --port 4173',
@@ -20,7 +21,7 @@ export default defineConfig({
   },
   projects: [
     { name: 'mobile-360', use: { ...devices['Desktop Chrome'], viewport: { width: 360, height: 800 }, isMobile: true, hasTouch: true } },
-    { name: 'iphone-13', use: { ...devices['iPhone 13'] } },
+    { name: 'iphone-13', use: { ...devices['iPhone 13'], browserName: 'chromium' } },
     { name: 'pixel-7', use: { ...devices['Pixel 7'] } },
   ],
 });

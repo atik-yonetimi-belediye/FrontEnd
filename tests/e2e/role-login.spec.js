@@ -14,7 +14,7 @@ for (const [identifier, role, path] of roles) {
     await page.route('**/api/auth/login', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { user: { id: 1, role, ad_soyad: 'Test Kullanıcı' } } }) }));
     await page.goto('/login');
     await page.getByLabel('Telefon numarası veya kullanıcı adı').fill(identifier);
-    await page.getByLabel('Şifre').fill('test-parola');
+    await page.locator('input[name="sifre"]').fill('test-parola');
     await page.getByRole('button', { name: 'Giriş Yap' }).click();
     await expect(page).toHaveURL(new RegExp(`${path}$`));
   });
