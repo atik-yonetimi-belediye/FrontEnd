@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <title>Onikişubat Belediyesi Atık Yönetim Sistemi</title>
     
@@ -17,29 +17,9 @@
     <meta name="apple-mobile-web-app-title" content="Atık Yönetimi" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
 
-    <script>
-      (function() {
-        var theme = localStorage.getItem('theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    
-    <!-- Register Service Worker for PWA -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js').then(function(reg) {
-            console.log('PWA ServiceWorker başarıyla yüklendi: ', reg.scope);
-          }, function(err) {
-            console.log('PWA ServiceWorker yükleme hatası: ', err);
-          });
-        });
-      }
-    </script>
   </body>
 </html>

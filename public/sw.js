@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bld-atik-v1';
+const CACHE_NAME = 'bld-atik-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -34,20 +34,39 @@ self.addEventListener('activate', (e) => {
 
 // Fetch Event (Network First, Cache Fallback)
 self.addEventListener('fetch', (e) => {
-  // Only cache GET requests, skip API and external requests
-  if (e.request.method !== 'GET' || e.request.url.includes('/api/')) {
+  const requestUrl = new URL(e.request.url);
+
+  // API, upload ve üçüncü taraf harita istekleri uygulama cache'ine yazılmaz.
+  if (
+    e.request.method !== 'GET' ||
+    requestUrl.origin !== self.location.origin ||
+    requestUrl.pathname.startsWith('/api/') ||
+    requestUrl.pathname.startsWith('/uploads/')
+  ) {
     return;
   }
 
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        const resClone = res.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(e.request, resClone);
-        });
+        if (res.ok) {
+          const resClone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(e.request, resClone);
+          });
+        }
         return res;
       })
-      .catch(() => caches.match(e.request))
+      .catch(async () => {
+        const cachedResponse = await caches.match(e.request);
+        if (cachedResponse) return cachedResponse;
+        if (e.request.mode === 'navigate') {
+          return caches.match('/index.html');
+        }
+        return new Response('Çevrimdışı', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      })
   );
 });

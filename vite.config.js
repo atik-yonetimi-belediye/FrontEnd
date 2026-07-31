@@ -7,6 +7,16 @@ export default defineConfig({
   server: {
     host: true, // Expose to local network (0.0.0.0)
     port: 5180,
-    strictPort: true
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true
+      },
+      '/uploads': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true
+      }
+    }
   }
 })
