@@ -92,3 +92,6 @@
     padding: 1rem;
   }
 }
+.cavus-assignment-form { display: grid; gap: .85rem; text-align: left; }
+.cavus-assignment-form label { display: grid; gap: .35rem; font-weight: 600; }
+.cavus-assignment-form select, .cavus-assignment-form input, .cavus-assignment-form textarea { width: 100%; min-height: 44px; padding: .7rem; border: 1px solid var(--border-color); border-radius: 9px; color: var(--text-primary); background: var(--bg-secondary); }

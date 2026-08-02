@@ -35,6 +35,9 @@ sağlanmadığı için arayüz sahte hareketli araç veya "canlı radar" verisi
 - JWT tarayıcı depolamasına yazılmaz; uygulama açılışında HttpOnly cookie oturumu
   backend üzerinden doğrulanır.
 - Yazma isteklerine CSRF cookie değeri otomatik olarak başlıkta eklenir.
-- Service worker, API, upload ve harici harita tile cevaplarını önbelleğe almaz.
+- Service worker API ve upload cevaplarını önbelleğe almaz; harita tile cevaplarını
+  en fazla 180 kayıt ve 7 gün sınırıyla `StaleWhileRevalidate` stratejisinde saklar.
+- Yönetici, çavuş, şoför ve şirket haritaları ortak Sokak/Uydu/Gece katman
+  kontrolünü kullanır; kullanıcının son seçimi cihazda korunur.
 - Şikâyet fotoğrafları gönderilmeden önce tür ve 5 MB boyut sınırı kontrol edilir.
 - Modal bileşenleri klavye ile kapatma ve dialog semantiği içerir.

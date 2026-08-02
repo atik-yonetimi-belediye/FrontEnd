@@ -1,4 +1,5 @@
 import React, { useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle, Info, XCircle, X } from 'lucide-react';
 import Button from './Button';
 import './ConfirmModal.css';
@@ -12,6 +13,8 @@ const ConfirmModal = ({
   confirmDisabled = false,
   cancelText = "İptal",
   variant = "warning", // 'warning' | 'danger' | 'info' | 'success'
+  className = '',
+  backdropClassName = '',
   onConfirm,
   onCancel,
   children
@@ -36,11 +39,11 @@ const ConfirmModal = ({
     }
   };
 
-  return (
-    <div className="custom-modal-backdrop animate-fade-in" onClick={onCancel}>
+  return createPortal(
+    <div className={`custom-modal-backdrop animate-fade-in ${backdropClassName}`} onClick={onCancel}>
       <div 
         ref={dialogRef}
-        className="custom-modal-window glass-panel" 
+        className={`custom-modal-window glass-panel ${className}`}
         onClick={e => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -75,7 +78,8 @@ const ConfirmModal = ({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

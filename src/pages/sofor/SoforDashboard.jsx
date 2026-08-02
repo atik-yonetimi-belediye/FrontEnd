@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
 import Button from '../../components/Button';
 import ConfirmModal from '../../components/ConfirmModal';
-import { MapPin, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import MapBaseLayer from '../../components/maps/MapBaseLayer';
+import { MapPin, CheckCircle, XCircle, AlertTriangle, Camera, LocateFixed } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import './SoforDashboard.css';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,6 +15,7 @@ import { createIdempotencyKey, queueOfflineRequest } from '../../services/offlin
 import { useToast } from '../../components/useToast';
 import { useAuth } from '../../context/useAuth';
 import { trackPilotEvent } from '../../services/observability';
+import { hasPermission } from '../../utils/permissions';
 
 const createIcon = () => {
   return L.divIcon({
@@ -39,9 +41,14 @@ const SoforDashboard = () => {
   const { user } = useAuth();
   const operationStartedAt = useRef(performance.now());
   const queryKey = ['sofor', 'konteynerler'];
+  const taskQueryKey = ['sofor', 'gorevler'];
   const { data: konteynerler = [], isPending: loading, isError, refetch } = useQuery({
     queryKey,
     queryFn: ({ signal }) => fetchAllPages('/sofor/konteynerler', { signal }),
+  });
+  const { data: gorevler = [], refetch: refetchTasks } = useQuery({
+    queryKey: taskQueryKey,
+    queryFn: ({ signal }) => fetchAllPages('/sofor/gorevler', { signal }),
   });
   const [userLocation, setUserLocation] = useState(null);
   
@@ -50,6 +57,10 @@ const SoforDashboard = () => {
   const [selectedKonteyner, setSelectedKonteyner] = useState(null);
   const [skipReason, setSkipReason] = useState('');
   const [otherReason, setOtherReason] = useState('');
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [evidencePhoto, setEvidencePhoto] = useState(null);
+  const [evidenceLocation, setEvidenceLocation] = useState(null);
+  const [locationBusy, setLocationBusy] = useState(false);
 
   // Default center
   const center = [37.5858, 36.9145];
@@ -68,24 +79,44 @@ const SoforDashboard = () => {
     }
   }, []);
 
+  const resetEvidence = () => { setEvidencePhoto(null); setEvidenceLocation(null); };
+  const openCompleteModal = (container) => { setSelectedKonteyner(container); resetEvidence(); setCompleteModalOpen(true); };
+  const captureEvidenceLocation = () => {
+    if (!navigator.geolocation) return showToast('Bu cihaz konum özelliğini desteklemiyor.', 'error');
+    setLocationBusy(true);
+    navigator.geolocation.getCurrentPosition((position) => {
+      setEvidenceLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude, konum_dogruluk_metre: position.coords.accuracy }); setLocationBusy(false);
+    }, () => { setLocationBusy(false); showToast('Konum alınamadı. Tarayıcı iznini kontrol edin.', 'error'); }, { enableHighAccuracy: true, timeout: 10000 });
+  };
+  const evidenceRequest = (payload, idempotencyKey) => {
+    if (!evidencePhoto) return api.post('/sofor/toplama-kayitlari', { ...payload, ...evidenceLocation }, { headers: { 'Idempotency-Key': idempotencyKey } });
+    const form = new FormData();
+    Object.entries({ ...payload, ...evidenceLocation }).forEach(([key, value]) => { if (value !== null && value !== undefined) form.append(key, value); });
+    form.append('kanit_fotografi', evidencePhoto);
+    return api.post('/sofor/toplama-kayitlari', form, { headers: { 'Idempotency-Key': idempotencyKey } });
+  };
+
   const handleToplandi = async (id) => {
     const payload = { konteyner_id: id, durum: 'toplandi' };
     const idempotencyKey = createIdempotencyKey();
     try {
       if (!navigator.onLine) throw new Error('offline');
-      await api.post('/sofor/toplama-kayitlari', payload, { headers: { 'Idempotency-Key': idempotencyKey } });
+      await evidenceRequest(payload, idempotencyKey);
       queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== id));
+      queryClient.setQueryData(taskQueryKey, (previous = []) => previous.filter(g => g.konteyner_id !== id));
       showToast('Toplama kaydı oluşturuldu.', 'success');
+      setCompleteModalOpen(false); resetEvidence();
       trackPilotEvent('collection_success', performance.now() - operationStartedAt.current);
       operationStartedAt.current = performance.now();
     } catch (error) {
-      if (!error.response) {
+      if (!error.response && !evidencePhoto) {
         await queueOfflineRequest('/sofor/toplama-kayitlari', payload, idempotencyKey, user?.id);
         queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== id));
+        queryClient.setQueryData(taskQueryKey, (previous = []) => previous.filter(g => g.konteyner_id !== id));
         showToast('Kayıt çevrimdışı kuyruğa alındı. Bağlantı gelince gönderilecek.', 'info');
         trackPilotEvent('collection_queued', performance.now() - operationStartedAt.current);
       } else {
-        showToast('İşlem tamamlanamadı. Lütfen yeniden deneyin.', 'error');
+        showToast(!navigator.onLine && evidencePhoto ? 'Fotoğraf kanıtı çevrimdışı kuyruğa alınamaz. Bağlantı geldiğinde yeniden deneyin.' : 'İşlem tamamlanamadı. Lütfen yeniden deneyin.', 'error');
         trackPilotEvent('collection_failed', performance.now() - operationStartedAt.current);
       }
     }
@@ -98,6 +129,7 @@ const SoforDashboard = () => {
     setSkipReason('');
     setOtherReason('');
     setSkipError(false);
+    resetEvidence();
     setSkipModalOpen(true);
   };
 
@@ -116,23 +148,35 @@ const SoforDashboard = () => {
     const idempotencyKey = createIdempotencyKey();
     try {
       if (!navigator.onLine) throw new Error('offline');
-      await api.post('/sofor/toplama-kayitlari', payload, { headers: { 'Idempotency-Key': idempotencyKey } });
+      await evidenceRequest(payload, idempotencyKey);
       queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== selectedKonteyner.id));
+      queryClient.setQueryData(taskQueryKey, (previous = []) => previous.filter(g => g.konteyner_id !== selectedKonteyner.id));
       setSkipModalOpen(false);
       showToast('Atlama kaydı oluşturuldu.', 'success');
       trackPilotEvent('skip_success', performance.now() - operationStartedAt.current);
       operationStartedAt.current = performance.now();
     } catch (error) {
-      if (!error.response) {
+      if (!error.response && !evidencePhoto) {
         await queueOfflineRequest('/sofor/toplama-kayitlari', payload, idempotencyKey, user?.id);
         queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== selectedKonteyner.id));
+        queryClient.setQueryData(taskQueryKey, (previous = []) => previous.filter(g => g.konteyner_id !== selectedKonteyner.id));
         setSkipModalOpen(false);
         showToast('Kayıt çevrimdışı kuyruğa alındı. Bağlantı gelince gönderilecek.', 'info');
         trackPilotEvent('skip_queued', performance.now() - operationStartedAt.current);
       } else {
-        showToast('İşlem tamamlanamadı. Lütfen yeniden deneyin.', 'error');
+        showToast(!navigator.onLine && evidencePhoto ? 'Fotoğraf kanıtı çevrimdışı kuyruğa alınamaz.' : 'İşlem tamamlanamadı. Lütfen yeniden deneyin.', 'error');
         trackPilotEvent('skip_failed', performance.now() - operationStartedAt.current);
       }
+    }
+  };
+
+  const startTask = async (taskId) => {
+    try {
+      await api.patch(`/sofor/gorevler/${taskId}/baslat`);
+      await refetchTasks();
+      showToast('Görev başlatıldı. Güvenli sürüşler.', 'success');
+    } catch {
+      showToast('Görev başlatılamadı. Lütfen yeniden deneyin.', 'error');
     }
   };
 
@@ -170,6 +214,12 @@ const SoforDashboard = () => {
   const positions = konteynerler
     .filter(k => k.latitude && k.longitude)
     .map(k => [k.latitude, k.longitude]);
+  const activeTasks = gorevler.filter((task) => ['atandi', 'devam_ediyor'].includes(task.durum));
+  const assignedContainerIds = new Set(activeTasks.map((task) => task.konteyner_id));
+  const otherContainers = konteynerler.filter((container) => !assignedContainerIds.has(container.id));
+  const pendingTaskCount = activeTasks.filter((task) => task.durum === 'atandi').length;
+  const activeTaskCount = activeTasks.filter((task) => task.durum === 'devam_ediyor').length;
+  const overdueTaskCount = activeTasks.filter((task) => task.gecikti_mi).length;
 
   return (
     <DashboardLayout title="Günlük Rota">
@@ -183,13 +233,37 @@ const SoforDashboard = () => {
           </div>
         )}
         <div className="dashboard-header-alert">
-          <AlertTriangle size={20} /> Lütfen sıradaki konteynerleri ziyaret edin.
+          <AlertTriangle size={20} /> Öncelikle size atanan görevleri tamamlayın.
         </div>
+
+        <section className="driver-task-summary" aria-label="Görev özeti">
+          <div><span>Bana Atanan</span><strong>{activeTasks.length}</strong></div>
+          <div><span>Bekleyen</span><strong>{pendingTaskCount}</strong></div>
+          <div><span>Devam Eden</span><strong>{activeTaskCount}</strong></div>
+          <div className={overdueTaskCount ? 'danger' : ''}><span>Geciken</span><strong>{overdueTaskCount}</strong></div>
+        </section>
+
+        <section className="assigned-task-section" aria-labelledby="assigned-task-title">
+          <div className="driver-section-title"><div><h3 id="assigned-task-title">Bana Atanan Görevler</h3><p>Yönetici tarafından önceliklendirilen konteynerler</p></div><span>{activeTasks.length}</span></div>
+          {activeTasks.length === 0 ? <div className="driver-empty-state glass-panel"><CheckCircle size={22} /> Açık atanmış göreviniz bulunmuyor.</div> : activeTasks.map((task) => (
+            <article className={`assigned-task-card glass-panel priority-${task.oncelik} ${task.gecikti_mi ? 'overdue' : ''}`} key={task.id}>
+              <header><div><span className="task-priority">{task.oncelik === 'acil' ? 'ACİL' : task.oncelik === 'yuksek' ? 'YÜKSEK' : task.oncelik === 'dusuk' ? 'DÜŞÜK' : 'NORMAL'}</span><h4>{task.konteyner_kodu}</h4></div><span className={`driver-task-status ${task.durum}`}>{task.durum === 'devam_ediyor' ? 'YOLA ÇIKILDI' : 'BEKLİYOR'}</span></header>
+              <dl><div><dt>Mahalle</dt><dd>{task.mahalle_ad}</dd></div><div><dt>Araç</dt><dd>{task.plaka}</dd></div><div><dt>Hedef</dt><dd>{task.hedef_tarih ? new Date(task.hedef_tarih).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : 'Belirlenmedi'}{task.gecikti_mi && <small>Gecikti</small>}</dd></div></dl>
+              {task.yonetici_notu && <p className="driver-task-note">{task.yonetici_notu}</p>}
+              <div className="assigned-task-actions">
+                {hasPermission(user, 'route.open') && <Button as="a" href={`https://www.google.com/maps/dir/?api=1&destination=${task.latitude},${task.longitude}`} target="_blank" rel="noopener noreferrer" variant="outline">🗺️ Yol Tarifi</Button>}
+                {task.durum === 'atandi' && <Button variant="outline" onClick={() => startTask(task.id)}>Yola Çık</Button>}
+                {hasPermission(user, 'collection.skip') && <Button variant="outline" className="text-danger border-danger" onClick={() => openSkipModal({ ...task, id: task.konteyner_id })}><XCircle size={17} /> Atla</Button>}
+                {hasPermission(user, 'collection.complete') && <Button variant="primary" onClick={() => openCompleteModal({ ...task, id: task.konteyner_id })}><CheckCircle size={17} /> Toplandı</Button>}
+              </div>
+            </article>
+          ))}
+        </section>
         
         {/* Rota Haritası */}
         <div className="sofor-map-container glass-panel mb-4">
           <MapContainer center={center} zoom={15} style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-lg)' }}>
-            <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+            <MapBaseLayer />
             
             {/* Draw route lines */}
             {positions.length > 1 && (
@@ -223,11 +297,12 @@ const SoforDashboard = () => {
           </MapContainer>
         </div>
 
+        <div className="driver-section-title other"><div><h3>Bölgenizdeki Diğer Konteynerler</h3><p>Araç türünüze uygun saha listesi</p></div><span>{otherContainers.length}</span></div>
         <div className="konteyner-list">
-          {konteynerler.length === 0 ? (
+          {otherContainers.length === 0 ? (
             <div className="glass-panel p-4 text-center">Tüm görevler tamamlandı! Harikasınız.</div>
           ) : (
-            konteynerler.map(k => (
+            otherContainers.map(k => (
               <div key={k.id} className="konteyner-card glass-panel">
                 <div className="k-card-header">
                   <div className="k-title">
@@ -237,7 +312,7 @@ const SoforDashboard = () => {
                   <span className="k-badge">{k.mahalle_ad}</span>
                 </div>
                 <div className="k-actions" style={{ display: 'flex', gap: '0.5rem', width: '100%', marginTop: '1rem' }}>
-                  <Button
+                  {hasPermission(user, 'route.open') && <Button
                     as="a"
                     href={`https://www.google.com/maps/dir/?api=1&destination=${k.latitude},${k.longitude}`}
                     target="_blank"
@@ -247,19 +322,31 @@ const SoforDashboard = () => {
                     style={{ flex: 1, textDecoration: 'none' }}
                   >
                     🗺️ Yol Tarifi
-                  </Button>
-                  <Button variant="outline" className="action-btn text-danger border-danger" onClick={() => openSkipModal(k)}>
+                  </Button>}
+                  {hasPermission(user, 'collection.skip') && <Button variant="outline" className="action-btn text-danger border-danger" onClick={() => openSkipModal(k)}>
                     <XCircle size={18} /> Atla
-                  </Button>
-                  <Button variant="primary" className="action-btn" onClick={() => handleToplandi(k.id)}>
+                  </Button>}
+                  {hasPermission(user, 'collection.complete') && <Button variant="primary" className="action-btn" onClick={() => openCompleteModal(k)}>
                     <CheckCircle size={18} /> Toplandı
-                  </Button>
+                  </Button>}
                 </div>
               </div>
             ))
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={completeModalOpen}
+        title={`${selectedKonteyner?.konteyner_kodu || 'Konteyner'} Toplandı`}
+        message="Zaman otomatik kaydedilir. Fotoğraf ve konum isteğe bağlıdır."
+        confirmText="Toplandı Olarak Kaydet"
+        variant="success"
+        onConfirm={() => handleToplandi(selectedKonteyner.id)}
+        onCancel={() => { setCompleteModalOpen(false); resetEvidence(); }}
+      >
+        {hasPermission(user, 'collection.attach_evidence') && <div className="collection-evidence"><label className="evidence-photo"><Camera size={19} /><span>{evidencePhoto ? evidencePhoto.name : 'Fotoğraf çek veya seç'}<small>JPG, PNG veya WEBP · en fazla 5 MB</small></span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => setEvidencePhoto(event.target.files?.[0] || null)} /></label><Button type="button" variant="outline" onClick={captureEvidenceLocation} disabled={locationBusy}><LocateFixed size={18} /> {locationBusy ? 'Konum alınıyor…' : evidenceLocation ? `Konum alındı (±${Math.round(evidenceLocation.konum_dogruluk_metre)} m)` : 'Konumu Kaydet'}</Button></div>}
+      </ConfirmModal>
 
       {/* Skip Modal */}
       <ConfirmModal
@@ -268,7 +355,7 @@ const SoforDashboard = () => {
         confirmText="Atlandı Olarak Kaydet"
         variant="danger"
         onConfirm={submitSkip}
-        onCancel={() => setSkipModalOpen(false)}
+        onCancel={() => { setSkipModalOpen(false); resetEvidence(); }}
       >
             <select 
               className="custom-select mt-4" 
@@ -300,6 +387,7 @@ const SoforDashboard = () => {
                 onChange={e => setOtherReason(e.target.value)}
               />
             )}
+            {hasPermission(user, 'collection.attach_evidence') && <div className="collection-evidence"><label className="evidence-photo"><Camera size={19} /><span>{evidencePhoto ? evidencePhoto.name : 'İsteğe bağlı fotoğraf'}<small>JPG, PNG veya WEBP · en fazla 5 MB</small></span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => setEvidencePhoto(event.target.files?.[0] || null)} /></label><Button type="button" variant="outline" onClick={captureEvidenceLocation} disabled={locationBusy}><LocateFixed size={18} /> {locationBusy ? 'Konum alınıyor…' : evidenceLocation ? `Konum alındı (±${Math.round(evidenceLocation.konum_dogruluk_metre)} m)` : 'Konumu Kaydet'}</Button></div>}
       </ConfirmModal>
     </DashboardLayout>
   );

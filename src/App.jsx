@@ -21,6 +21,7 @@ const AdminMap = lazy(() => import('./pages/admin/AdminMap'));
 const AdminSikayetler = lazy(() => import('./pages/admin/AdminSikayetler'));
 const AdminSirketler = lazy(() => import('./pages/admin/AdminSirketler'));
 const AdminPersonel = lazy(() => import('./pages/admin/AdminPersonel'));
+const AdminAraclar = lazy(() => import('./pages/admin/AdminAraclar'));
 const AdminGeriDonusum = lazy(() => import('./pages/admin/AdminGeriDonusum'));
 
 const CavusDashboard = lazy(() => import('./pages/cavus/CavusDashboard'));
@@ -53,6 +54,7 @@ const AppRoutes = () => {
         <Route path="/admin/sikayetler" element={<ProtectedRoute allowedRoles={['admin']}><AdminSikayetler /></ProtectedRoute>} />
         <Route path="/admin/sirketler" element={<ProtectedRoute allowedRoles={['admin']}><AdminSirketler /></ProtectedRoute>} />
         <Route path="/admin/personel" element={<ProtectedRoute allowedRoles={['admin']}><AdminPersonel /></ProtectedRoute>} />
+        <Route path="/admin/araclar" element={<ProtectedRoute allowedRoles={['admin']}><AdminAraclar /></ProtectedRoute>} />
         <Route path="/admin/geri-donusum" element={<ProtectedRoute allowedRoles={['admin']}><AdminGeriDonusum /></ProtectedRoute>} />
         
         <Route path="/cavus" element={<ProtectedRoute allowedRoles={['cavus']}><CavusDashboard /></ProtectedRoute>} />

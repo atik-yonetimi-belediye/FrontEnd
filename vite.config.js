@@ -17,7 +17,7 @@ export default defineConfig({
         lang: 'tr',
         start_url: '/',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'any',
         background_color: '#080c14',
         theme_color: '#10b981',
         icons: [
@@ -48,14 +48,18 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: ({ request }) => request.destination === 'image' || request.destination === 'font',
-            handler: 'CacheFirst',
-            options: { cacheName: 'static-assets-v1', expiration: { maxEntries: 80, maxAgeSeconds: 30 * 24 * 60 * 60 } },
-          },
-          {
             urlPattern: /^https:\/\/(?:[^.]+\.)?(?:basemaps\.cartocdn\.com|arcgisonline\.com)\//,
             handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'map-tiles-v1', expiration: { maxEntries: 180, maxAgeSeconds: 7 * 24 * 60 * 60 } },
+            options: {
+              cacheName: 'map-tiles-v2',
+              expiration: { maxEntries: 180, maxAgeSeconds: 7 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: ({ request, sameOrigin }) => sameOrigin && (request.destination === 'image' || request.destination === 'font'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'static-assets-v1', expiration: { maxEntries: 80, maxAgeSeconds: 30 * 24 * 60 * 60 } },
           },
         ],
       },

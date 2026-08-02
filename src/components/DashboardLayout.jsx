@@ -4,6 +4,7 @@ import { LogOut, Home, Settings, Map, FileText, Users, Truck, Sun, Moon, Recycle
 import { useAuth } from '../context/useAuth';
 import ConfirmModal from './ConfirmModal';
 import './DashboardLayout.css';
+import { hasPermission } from '../utils/permissions';
 
 const DashboardLayout = ({ children, title }) => {
   const { user, logout } = useAuth();
@@ -42,14 +43,15 @@ const DashboardLayout = ({ children, title }) => {
           { name: 'Şikayetler', path: '/admin/sikayetler', icon: <FileText size={20} /> },
           { name: 'Şirket Onayları', path: '/admin/sirketler', icon: <Settings size={20} /> },
           { name: 'Personel', path: '/admin/personel', icon: <Users size={20} /> },
+          { name: 'Araçlar', path: '/admin/araclar', icon: <Truck size={20} /> },
           { name: 'Geri Dönüşüm', path: '/admin/geri-donusum', icon: <Recycle size={20} /> },
         ];
       case 'cavus':
         return [
           { name: 'Özet', path: '/cavus', icon: <Home size={20} /> },
-          { name: 'Konteynerlerim', path: '/cavus/konteynerler', icon: <Map size={20} /> },
-          { name: 'Araç / Şoför', path: '/cavus/araclar', icon: <Truck size={20} /> },
-        ];
+          { name: 'Konteynerlerim', path: '/cavus/konteynerler', icon: <Map size={20} />, permission: 'container.view' },
+          { name: 'Araç / Şoför', path: '/cavus/araclar', icon: <Truck size={20} />, permission: 'vehicle.view' },
+        ].filter((link) => !link.permission || hasPermission(user, link.permission));
       case 'sofor':
         return [
           { name: 'Görevler', path: '/sofor', icon: <Home size={20} /> },

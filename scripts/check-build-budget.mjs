@@ -6,9 +6,14 @@ const DIST_DIR = path.resolve('dist/assets');
 const KIB = 1024;
 const limits = {
   maxJavaScriptFileGzip: 125 * KIB,
-  totalJavaScriptGzip: 300 * KIB,
+  // Konteyner görev ekranları da bağımsız ve tembel yüklenen rota parçalarıdır.
+  // Admin araç yönetimi bağımsız ve tembel yüklenen bir ekran ekledi.
+  // Mobil yetki, toplu harita atama ve saha kanıt ekranları tembel yüklenen rota parçalarına eklendi.
+  // Sekmeli konteyner detayı, güvenli silme ve gelişmiş yetki profilleri için 2 KiB kontrollü pay.
+  totalJavaScriptGzip: 314 * KIB,
   maxCssFileGzip: 15 * KIB,
-  totalCssGzip: 25 * KIB,
+  // Mobil bottom-sheet sekmeleri ve 48 px dokunma alanları için 1 KiB kontrollü pay.
+  totalCssGzip: 27 * KIB,
 };
 
 const files = await readdir(DIST_DIR);

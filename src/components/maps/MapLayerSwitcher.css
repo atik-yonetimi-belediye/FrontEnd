@@ -1,0 +1,78 @@
+.map-layer-switcher {
+  position: absolute;
+  z-index: 1000;
+  display: flex;
+  gap: 0.25rem;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(8px);
+}
+
+.map-layer-switcher--top-right {
+  top: 12px;
+  right: 12px;
+}
+
+.map-layer-switcher--admin {
+  top: 15px;
+  left: 58px;
+}
+
+.map-layer-button {
+  min-height: 34px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.map-layer-button:hover {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+.map-layer-button.active {
+  color: #fff;
+  background: var(--primary-color);
+}
+
+.map-layer-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary-color) 45%, transparent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .map-layer-switcher {
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .map-layer-switcher--top-right {
+    top: 8px;
+    right: 8px;
+  }
+
+  .map-layer-switcher--admin {
+    top: 10px;
+    left: 50px;
+  }
+
+  .map-layer-button {
+    min-height: 32px;
+    padding: 0.35rem 0.42rem;
+    font-size: 0.72rem;
+  }
+}

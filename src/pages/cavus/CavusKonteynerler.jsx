@@ -2,14 +2,17 @@ import React, { useEffect, useRef, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
 import { fetchAllPages } from '../../services/pagination';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import Button from '../../components/Button';
 import ConfirmModal from '../../components/ConfirmModal';
-import { MapPin, Navigation, Clock, Trash2 } from 'lucide-react';
+import MapBaseLayer from '../../components/maps/MapBaseLayer';
+import { MapPin, Navigation, Clock, Trash2, Pencil } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import './CavusKonteynerler.css';
 import useDialogFocusTrap from '../../hooks/useDialogFocusTrap';
+import { useAuth } from '../../context/useAuth';
+import { hasPermission } from '../../utils/permissions';
 
 const createIcon = (type) => {
   const color = type === 'geri_donusum' ? '#10b981' : '#3b82f6';
@@ -44,6 +47,7 @@ const MapController = ({ center, zoom }) => {
 };
 
 const CavusKonteynerler = () => {
+  const { user } = useAuth();
   const [konteynerler, setKonteynerler] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -66,6 +70,11 @@ const CavusKonteynerler = () => {
   const defaultCenter = [37.5858, 36.9145];
   const [mapCenter, setMapCenter] = useState(defaultCenter);
   const [mapZoom, setMapZoom] = useState(13);
+  const [assignment, setAssignment] = useState(null);
+  const [drivers, setDrivers] = useState([]);
+  const [assignmentForm, setAssignmentForm] = useState({ sofor_id: '', oncelik: 'normal', hedef_tarih: '', yonetici_notu: '' });
+  const [assignmentBusy, setAssignmentBusy] = useState(false);
+  const [containerEdit, setContainerEdit] = useState(null);
   useDialogFocusTrap(historyDialogRef, historyModalOpen, () => setHistoryModalOpen(false));
 
   useEffect(() => {
@@ -148,6 +157,30 @@ const CavusKonteynerler = () => {
     }
   };
 
+  const openAssignment = async (container) => {
+    setAssignment(container); setDrivers([]); setAssignmentForm({ sofor_id: '', oncelik: 'normal', hedef_tarih: '', yonetici_notu: '' });
+    try { const response = await api.get(`/cavus/konteynerler/${container.id}/uygun-soforler`); setDrivers(response.data.data.soforler || []); }
+    catch (error) { alert(error.response?.data?.message || 'Uygun şoförler alınamadı.'); setAssignment(null); }
+  };
+
+  const submitAssignment = async () => {
+    setAssignmentBusy(true);
+    try {
+      await api.post(`/cavus/konteynerler/${assignment.id}/gorevler`, { sofor_id: Number(assignmentForm.sofor_id), oncelik: assignmentForm.oncelik,
+        hedef_tarih: assignmentForm.hedef_tarih ? new Date(assignmentForm.hedef_tarih).toISOString() : null, yonetici_notu: assignmentForm.yonetici_notu.trim() || undefined });
+      setAssignment(null); alert('Konteyner görevi şoföre atandı.');
+    } catch (error) { alert(error.response?.data?.message || 'Görev atanamadı.'); }
+    finally { setAssignmentBusy(false); }
+  };
+
+  const submitContainerEdit = async () => {
+    try {
+      const response = await api.patch(`/cavus/konteynerler/${containerEdit.id}`, { tur: containerEdit.tur, latitude: Number(containerEdit.latitude), longitude: Number(containerEdit.longitude), adres: containerEdit.adres || null, yerlesim_notu: containerEdit.yerlesim_notu || null });
+      setKonteynerler((current) => current.map((item) => item.id === containerEdit.id ? { ...item, ...response.data.data } : item));
+      setContainerEdit(null);
+    } catch (error) { alert(error.response?.data?.message || 'Konteyner güncellenemedi.'); }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "Hiç toplanmadı";
     const d = new Date(dateString);
@@ -187,13 +220,13 @@ const CavusKonteynerler = () => {
       <div className="cavus-konteynerler">
         
         {/* Ekleme Alanı */}
-        <div className="glass-panel add-container-section mb-4">
+        {hasPermission(user, 'container.create') && <div className="glass-panel add-container-section mb-4">
           <h3>Yeni Konteyner Ekle</h3>
           <p className="text-muted mb-4">Haritaya tıklayarak veya GPS butonunu kullanarak konteynerin konumunu belirleyin.</p>
           
           <div className="map-wrapper mb-4">
             <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: '320px', width: '100%', borderRadius: 'var(--radius-md)' }}>
-              <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+              <MapBaseLayer />
               <MapController center={mapCenter} zoom={mapZoom} />
               <LocationMarker position={position} setPosition={setPosition} />
               
@@ -232,7 +265,7 @@ const CavusKonteynerler = () => {
             </div>
           </div>
           {!position && <p className="text-danger mt-2" style={{fontSize: '0.875rem'}}>* Ekleme yapmak için haritadan konum seçmelisiniz.</p>}
-        </div>
+        </div>}
 
         {/* Liste */}
         <h3>Bölgemdeki Konteynerler ({konteynerler.length})</h3>
@@ -247,9 +280,9 @@ const CavusKonteynerler = () => {
                     <h4>{k.konteyner_kodu}</h4>
                     <span className="badge">{k.tur === 'geri_donusum' ? 'Geri Dönüşüm' : 'Katı Atık'}</span>
                   </div>
-                  <Button variant="ghost" className="text-danger" onClick={() => promptPassive(k.id)} title="Pasif Yap">
+                  {hasPermission(user, 'container.deactivate') && <Button variant="ghost" className="text-danger" onClick={() => promptPassive(k.id)} title="Pasif Yap">
                     <Trash2 size={18} />
-                  </Button>
+                  </Button>}
                 </div>
                 <div className="k-body">
                   <p><MapPin size={16} className="text-muted"/> {k.mahalle_ad}</p>
@@ -274,6 +307,8 @@ const CavusKonteynerler = () => {
                     <Button variant="outline" size="sm" onClick={() => handleViewHistory(k.id, k.konteyner_kodu)} style={{ width: '100%', fontSize: '0.85rem' }}>
                       Toplama Geçmişi
                     </Button>
+                    {hasPermission(user, 'container.edit') && <Button variant="outline" size="sm" onClick={() => setContainerEdit({ id: k.id, konteyner_kodu: k.konteyner_kodu, tur: k.tur, latitude: k.latitude, longitude: k.longitude, adres: k.adres || '', yerlesim_notu: k.yerlesim_notu || '' })} style={{ width: '100%' }}><Pencil size={14} /> Düzenle</Button>}
+                    {hasPermission(user, 'task.assign') && <Button variant="primary" size="sm" onClick={() => openAssignment(k)} style={{ width: '100%' }}>Şoföre Görev Ata</Button>}
                   </div>
                 </div>
               </div>
@@ -284,6 +319,23 @@ const CavusKonteynerler = () => {
       </div>
 
       {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(assignment)}
+        title={`${assignment?.konteyner_kodu || ''} — Şoföre Ata`}
+        message="Yalnızca size bağlı, aktif ve araç türü uyumlu şoförler seçilebilir."
+        variant="info"
+        confirmText={assignmentBusy ? 'Atanıyor…' : 'Görev Ata'}
+        confirmDisabled={assignmentBusy || !assignmentForm.sofor_id}
+        onConfirm={submitAssignment}
+        onCancel={() => !assignmentBusy && setAssignment(null)}
+      >
+        <div className="cavus-assignment-form"><label>Şoför<select value={assignmentForm.sofor_id} onChange={(event) => setAssignmentForm((current) => ({ ...current, sofor_id: event.target.value }))}><option value="">Şoför seçin</option>{drivers.map((driver) => <option key={driver.id} value={driver.id} disabled={!driver.uygun_mi}>{driver.ad_soyad} · {driver.plaka || 'Araç yok'}{driver.uygun_mi ? '' : ` — ${driver.uygun_degil_nedeni}`}</option>)}</select></label><label>Öncelik<select value={assignmentForm.oncelik} onChange={(event) => setAssignmentForm((current) => ({ ...current, oncelik: event.target.value }))}><option value="dusuk">Düşük</option><option value="normal">Normal</option><option value="yuksek">Yüksek</option><option value="acil">Acil</option></select></label><label>Hedef zaman<input type="datetime-local" value={assignmentForm.hedef_tarih} onChange={(event) => setAssignmentForm((current) => ({ ...current, hedef_tarih: event.target.value }))} /></label><label>Şoföre not<textarea rows="3" maxLength={2000} value={assignmentForm.yonetici_notu} onChange={(event) => setAssignmentForm((current) => ({ ...current, yonetici_notu: event.target.value }))} /></label></div>
+      </ConfirmModal>
+
+      <ConfirmModal isOpen={Boolean(containerEdit)} title={`${containerEdit?.konteyner_kodu || ''} Düzenle`} variant="info" confirmText="Kaydet" confirmDisabled={!containerEdit?.latitude || !containerEdit?.longitude} onConfirm={submitContainerEdit} onCancel={() => setContainerEdit(null)}>
+        {containerEdit && <div className="cavus-assignment-form"><label>Tür<select value={containerEdit.tur} onChange={(event) => setContainerEdit((current) => ({ ...current, tur: event.target.value }))}><option value="kati_atik">Katı Atık</option><option value="geri_donusum">Geri Dönüşüm</option></select></label><label>Enlem<input inputMode="decimal" value={containerEdit.latitude} onChange={(event) => setContainerEdit((current) => ({ ...current, latitude: event.target.value }))} /></label><label>Boylam<input inputMode="decimal" value={containerEdit.longitude} onChange={(event) => setContainerEdit((current) => ({ ...current, longitude: event.target.value }))} /></label><label>Adres<input value={containerEdit.adres} maxLength={1000} onChange={(event) => setContainerEdit((current) => ({ ...current, adres: event.target.value }))} /></label><label>Yerleşim Notu<textarea rows="3" maxLength={2000} value={containerEdit.yerlesim_notu} onChange={(event) => setContainerEdit((current) => ({ ...current, yerlesim_notu: event.target.value }))} /></label></div>}
+      </ConfirmModal>
+
       <ConfirmModal
         isOpen={deleteConfirmOpen}
         title="Konteyneri Pasif Yap"

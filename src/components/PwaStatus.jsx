@@ -1,23 +1,44 @@
 import React, { useEffect, useState } from 'react';
 import { registerSW } from 'virtual:pwa-register';
-import Button from './Button';
 import './PwaStatus.css';
 import { flushOfflineQueue } from '../services/offlineQueue';
 import { useAuth } from '../context/useAuth';
-import { Link } from 'react-router-dom';
 
 export default function PwaStatus() {
   const { user } = useAuth();
   const [online, setOnline] = useState(() => navigator.onLine);
-  const [updateReady, setUpdateReady] = useState(false);
-  const [updateSW, setUpdateSW] = useState(null);
+  const [updateState, setUpdateState] = useState(() => sessionStorage.getItem('pwa-update-applied') ? 'updated' : 'idle');
 
   useEffect(() => {
+    let hideTimer;
+    if (sessionStorage.getItem('pwa-update-applied')) {
+      sessionStorage.removeItem('pwa-update-applied');
+      hideTimer = window.setTimeout(() => setUpdateState('idle'), 5000);
+    }
+    let registration;
+    let applying = false;
     const update = registerSW({
-      onNeedRefresh() { setUpdateReady(true); },
-      onRegisteredSW(_url, registration) { registration?.update(); },
+      immediate: true,
+      onNeedRefresh() {
+        if (applying) return;
+        applying = true;
+        setUpdateState('updating');
+        sessionStorage.setItem('pwa-update-applied', '1');
+        update(true);
+      },
+      onRegisteredSW(_url, value) { registration = value; registration?.update(); },
     });
-    setUpdateSW(() => update);
+    const check = () => { if (navigator.onLine) registration?.update().catch(() => {}); };
+    const interval = window.setInterval(check, 60_000);
+    const handleVisibility = () => { if (document.visibilityState === 'visible') check(); };
+    window.addEventListener('focus', check);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      if (hideTimer) window.clearTimeout(hideTimer);
+      window.clearInterval(interval);
+      window.removeEventListener('focus', check);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   useEffect(() => {
@@ -32,11 +53,10 @@ export default function PwaStatus() {
     };
   }, [user?.id]);
 
-  if (online && !updateReady) return null;
+  if (online && updateState === 'idle') return null;
   return (
-    <aside className={`pwa-status ${online ? 'pwa-update' : 'pwa-offline'}`} aria-live="polite">
-      <div><strong>{online ? 'Yeni sürüm hazır' : 'Çevrimdışısınız'}</strong><span>{online ? 'Güncelleyerek en yeni sürümü kullanın.' : 'Kayıtlarınız korunacak; bağlantı gelince gönderilecek.'}</span></div>
-      {updateReady ? <Button size="sm" onClick={() => updateSW?.(true)}>Güncelle</Button> : <Button as={Link} to="/cevrimdisi" size="sm" variant="outline">Detay</Button>}
+    <aside className={`pwa-status ${online ? 'pwa-update' : 'pwa-offline'}`} aria-live="polite" role="status">
+      <div><strong>{!online ? 'Çevrimdışısınız' : updateState === 'updated' ? 'Uygulama güncellendi' : 'Yeni sürüm yükleniyor'}</strong><span>{!online ? 'Kayıtlarınız korunacak; bağlantı gelince gönderilecek.' : updateState === 'updated' ? 'En yeni sürümü kullanıyorsunuz.' : 'Güncelleme otomatik uygulanıyor…'}</span></div>
     </aside>
   );
 }

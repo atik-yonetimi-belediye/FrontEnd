@@ -5,7 +5,9 @@ import { fetchAllPages } from '../../services/pagination';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 import ConfirmModal from '../../components/ConfirmModal';
-import { Truck, Users, Trash2, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { Truck, Users, Trash2, Eye, EyeOff, RefreshCw, Pencil } from 'lucide-react';
+import { useAuth } from '../../context/useAuth';
+import { hasPermission } from '../../utils/permissions';
 import './CavusAraclar.css';
 
 const formatPhone = (value) => {
@@ -27,6 +29,7 @@ const formatPhone = (value) => {
 };
 
 const CavusAraclar = () => {
+  const { user } = useAuth();
   const [araclar, setAraclar] = useState([]);
   const [soforler, setSoforler] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +54,7 @@ const CavusAraclar = () => {
 
   // Driver vehicle transfer modal
   const [transferModal, setTransferModal] = useState({ isOpen: false, soforId: null, currentAracId: '' });
+  const [driverEdit, setDriverEdit] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -293,6 +297,17 @@ const CavusAraclar = () => {
     }
   };
 
+  const handleEditDriver = async () => {
+    try {
+      const payload = { ad: driverEdit.ad.trim(), soyad: driverEdit.soyad.trim(), telefon: driverEdit.telefon.replace(/\D/g, '') };
+      const response = await api.patch(`/cavus/soforler/${driverEdit.id}`, payload);
+      setSoforler((current) => current.map((item) => item.id === driverEdit.id ? { ...item, ...response.data.data } : item));
+      setDriverEdit(null);
+    } catch (err) {
+      setInfoModal({ isOpen: true, title: 'Şoför Güncellenemedi', content: <p>{err.response?.data?.message || 'Lütfen bilgileri kontrol edin.'}</p> });
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout title="Araç & Şoför Yönetimi">
@@ -338,7 +353,7 @@ const CavusAraclar = () => {
                   </select>
                 </div>
                 
-                <Button type="submit" variant="primary">Araç Ekle</Button>
+                {hasPermission(user, 'vehicle.create') && <Button type="submit" variant="primary">Araç Ekle</Button>}
               </form>
 
               <div style={{ marginTop: '1rem', padding: '0.75rem', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
@@ -360,12 +375,12 @@ const CavusAraclar = () => {
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <Button variant="outline" size="sm" onClick={() => handleToggleAracTuru(a)} title="Görevi Değiştir (Katı <-> Geri Dönüşüm)">
+                      {hasPermission(user, 'vehicle.edit') && <Button variant="outline" size="sm" onClick={() => handleToggleAracTuru(a)} title="Görevi Değiştir (Katı <-> Geri Dönüşüm)">
                         <RefreshCw size={14} /> Görev Değiştir
-                      </Button>
-                      <Button variant="ghost" className="text-danger" onClick={() => handlePassiveAracPrompt(a.id, a.plaka)}>
+                      </Button>}
+                      {hasPermission(user, 'vehicle.deactivate') && <Button variant="ghost" className="text-danger" onClick={() => handlePassiveAracPrompt(a.id, a.plaka)}>
                         <Trash2 size={18} />
-                      </Button>
+                      </Button>}
                     </div>
                   </div>
                 ))
@@ -427,7 +442,7 @@ const CavusAraclar = () => {
                     ))}
                   </select>
                 </div>
-                <Button type="submit" variant="primary">Şoför Ekle</Button>
+                {hasPermission(user, 'driver.create') && <Button type="submit" variant="primary">Şoför Ekle</Button>}
               </form>
 
               <div style={{ marginTop: '1rem', padding: '0.75rem', borderRadius: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
@@ -450,17 +465,18 @@ const CavusAraclar = () => {
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <Button 
+                      {hasPermission(user, 'driver.edit') && <Button variant="outline" size="sm" onClick={() => setDriverEdit({ id: s.id, ad: s.ad, soyad: s.soyad, telefon: s.telefon })}><Pencil size={14} /> Düzenle</Button>}
+                      {hasPermission(user, 'driver.assign_vehicle') && <Button
                         variant="outline" 
                         size="sm" 
                         onClick={() => setTransferModal({ isOpen: true, soforId: s.id, currentAracId: s.arac_id || '' })}
                         title="Başka Plakaya Aktar / Aracı Değiştir"
                       >
                         <RefreshCw size={14} /> Aracı Aktar
-                      </Button>
-                      <Button variant="ghost" className="text-danger" onClick={() => handlePassiveSoforPrompt(s.id, `${s.ad} ${s.soyad}`)}>
+                      </Button>}
+                      {hasPermission(user, 'driver.deactivate') && <Button variant="ghost" className="text-danger" onClick={() => handlePassiveSoforPrompt(s.id, `${s.ad} ${s.soyad}`)}>
                         <Trash2 size={18} />
-                      </Button>
+                      </Button>}
                     </div>
                   </div>
                 ))
@@ -519,6 +535,9 @@ const CavusAraclar = () => {
                 ))}
               </select>
             </div>
+      </ConfirmModal>
+      <ConfirmModal isOpen={Boolean(driverEdit)} title="Şoför Bilgilerini Düzenle" variant="info" confirmText="Kaydet" confirmDisabled={!driverEdit?.ad?.trim() || !driverEdit?.soyad?.trim() || driverEdit?.telefon?.replace(/\D/g, '').length !== 11} onConfirm={handleEditDriver} onCancel={() => setDriverEdit(null)}>
+        {driverEdit && <div className="add-form"><Input label="Ad" value={driverEdit.ad} onChange={(event) => setDriverEdit((current) => ({ ...current, ad: event.target.value }))} /><Input label="Soyad" value={driverEdit.soyad} onChange={(event) => setDriverEdit((current) => ({ ...current, soyad: event.target.value }))} /><Input label="Telefon" inputMode="tel" value={formatPhone(driverEdit.telefon)} onChange={(event) => setDriverEdit((current) => ({ ...current, telefon: event.target.value.replace(/\D/g, '').slice(0, 11) }))} /></div>}
       </ConfirmModal>
     </DashboardLayout>
   );
