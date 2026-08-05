@@ -18,10 +18,10 @@ import { trackPilotEvent } from '../../services/observability';
 import { hasPermission } from '../../utils/permissions';
 import { COLLECTION_COLOR_REFRESH_MS, getCollectionButtonState } from '../../utils/containerCollectionState';
 
-const createIcon = () => {
+const createIcon = (color) => {
   return L.divIcon({
     className: 'custom-leaflet-icon',
-    html: `<div style="background-color: var(--warning-color); width: 100%; height: 100%; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
+    html: `<div style="background-color: ${color}; width: 100%; height: 100%; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
     iconSize: [20, 20],
     iconAnchor: [10, 10],
   });
@@ -283,7 +283,7 @@ const SoforDashboard = () => {
             {/* Containers */}
             {konteynerler.map(k => (
               k.latitude && k.longitude && (
-                <Marker key={k.id} position={[k.latitude, k.longitude]} icon={createIcon()} title={`${k.konteyner_kodu} görevi`} alt={`${k.konteyner_kodu} görevi`}>
+                <Marker key={k.id} position={[k.latitude, k.longitude]} icon={createIcon(getCollectionButtonState(k.son_toplanma_tarihi).color)} title={`${k.konteyner_kodu} görevi`} alt={`${k.konteyner_kodu} görevi`}>
                   <Popup className="custom-popup">
                     <div className="popup-content" style={{ textAlign: 'center' }}>
                       <strong className="popup-title">{k.konteyner_kodu}</strong><br/>
