@@ -16,6 +16,7 @@ import { useToast } from '../../components/useToast';
 import { useAuth } from '../../context/useAuth';
 import { trackPilotEvent } from '../../services/observability';
 import { hasPermission } from '../../utils/permissions';
+import { COLLECTION_COLOR_REFRESH_MS, getCollectionButtonState } from '../../utils/containerCollectionState';
 
 const createIcon = () => {
   return L.divIcon({
@@ -61,6 +62,7 @@ const SoforDashboard = () => {
   const [evidencePhoto, setEvidencePhoto] = useState(null);
   const [evidenceLocation, setEvidenceLocation] = useState(null);
   const [locationBusy, setLocationBusy] = useState(false);
+  const [, setNow] = useState(() => Date.now());
 
   // Default center
   const center = [37.5858, 36.9145];
@@ -78,6 +80,18 @@ const SoforDashboard = () => {
       return () => navigator.geolocation.clearWatch(watchId);
     }
   }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), COLLECTION_COLOR_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const markContainerCollected = (id) => {
+    queryClient.setQueryData(queryKey, (previous = []) => previous.map((container) => (
+      container.id === id ? { ...container, son_toplanma_tarihi: new Date().toISOString() } : container
+    )));
+    queryClient.setQueryData(taskQueryKey, (previous = []) => previous.filter((task) => task.konteyner_id !== id));
+  };
 
   const resetEvidence = () => { setEvidencePhoto(null); setEvidenceLocation(null); };
   const openCompleteModal = (container) => { setSelectedKonteyner(container); resetEvidence(); setCompleteModalOpen(true); };
@@ -102,8 +116,7 @@ const SoforDashboard = () => {
     try {
       if (!navigator.onLine) throw new Error('offline');
       await evidenceRequest(payload, idempotencyKey);
-      queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== id));
-      queryClient.setQueryData(taskQueryKey, (previous = []) => previous.filter(g => g.konteyner_id !== id));
+      markContainerCollected(id);
       showToast('Toplama kaydı oluşturuldu.', 'success');
       setCompleteModalOpen(false); resetEvidence();
       trackPilotEvent('collection_success', performance.now() - operationStartedAt.current);
@@ -111,8 +124,7 @@ const SoforDashboard = () => {
     } catch (error) {
       if (!error.response && !evidencePhoto) {
         await queueOfflineRequest('/sofor/toplama-kayitlari', payload, idempotencyKey, user?.id);
-        queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== id));
-        queryClient.setQueryData(taskQueryKey, (previous = []) => previous.filter(g => g.konteyner_id !== id));
+        markContainerCollected(id);
         showToast('Kayıt çevrimdışı kuyruğa alındı. Bağlantı gelince gönderilecek.', 'info');
         trackPilotEvent('collection_queued', performance.now() - operationStartedAt.current);
       } else {
@@ -149,7 +161,6 @@ const SoforDashboard = () => {
     try {
       if (!navigator.onLine) throw new Error('offline');
       await evidenceRequest(payload, idempotencyKey);
-      queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== selectedKonteyner.id));
       queryClient.setQueryData(taskQueryKey, (previous = []) => previous.filter(g => g.konteyner_id !== selectedKonteyner.id));
       setSkipModalOpen(false);
       showToast('Atlama kaydı oluşturuldu.', 'success');
@@ -158,7 +169,6 @@ const SoforDashboard = () => {
     } catch (error) {
       if (!error.response && !evidencePhoto) {
         await queueOfflineRequest('/sofor/toplama-kayitlari', payload, idempotencyKey, user?.id);
-        queryClient.setQueryData(queryKey, (previous = []) => previous.filter(k => k.id !== selectedKonteyner.id));
         queryClient.setQueryData(taskQueryKey, (previous = []) => previous.filter(g => g.konteyner_id !== selectedKonteyner.id));
         setSkipModalOpen(false);
         showToast('Kayıt çevrimdışı kuyruğa alındı. Bağlantı gelince gönderilecek.', 'info');
@@ -326,7 +336,7 @@ const SoforDashboard = () => {
                   {hasPermission(user, 'collection.skip') && <Button variant="outline" className="action-btn text-danger border-danger" onClick={() => openSkipModal(k)}>
                     <XCircle size={18} /> Atla
                   </Button>}
-                  {hasPermission(user, 'collection.complete') && <Button variant="primary" className="action-btn" onClick={() => openCompleteModal(k)}>
+                  {hasPermission(user, 'collection.complete') && <Button variant="primary" className="action-btn" style={{ backgroundColor: getCollectionButtonState(k.son_toplanma_tarihi).color, borderColor: getCollectionButtonState(k.son_toplanma_tarihi).color }} title={`Son toplama durum rengi: ${getCollectionButtonState(k.son_toplanma_tarihi).label}`} onClick={() => openCompleteModal(k)}>
                     <CheckCircle size={18} /> Toplandı
                   </Button>}
                 </div>

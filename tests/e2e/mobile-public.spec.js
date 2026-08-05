@@ -9,6 +9,7 @@ test('vatandaş ana sayfa ve şikâyet formu mobilde erişilebilirdir', async ({
   await expect(page.getByRole('heading', { name: /Çevrenizi Korumak/ })).toBeVisible();
   await page.getByRole('link', { name: 'Şikayet Bildir' }).click();
   await expect(page.getByRole('heading', { name: 'Şikayet Bildir' })).toBeVisible();
+  await expect(page.locator('.complaint-page .form-container.animate-fade-in')).toHaveCSS('opacity', '1');
   await page.screenshot({ path: testInfo.outputPath('sikayet-mobil.png'), fullPage: true });
   const metrics = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
   expect(metrics.scrollWidth).toBe(metrics.width);

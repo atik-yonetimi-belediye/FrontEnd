@@ -31,7 +31,7 @@ async function mockRoleMap(page, role) {
     if (path === '/api/auth/session') {
       return route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: { user: { id: 1, role, ad_soyad: 'Harita Testi' } } }),
+        body: JSON.stringify({ success: true, data: { user: { id: 1, role, ad_soyad: 'Harita Testi', permissions: ['*'] } } }),
       });
     }
     if (path === '/api/sirket/geri-donusum-talepleri') {

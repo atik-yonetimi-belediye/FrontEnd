@@ -28,7 +28,7 @@ test('aktif araç başka çavuşa şoförüyle aktarılabilir ve mevcut sahibi g
   await expect(dialog.getByText(/Ahmet Kaya adlı şoför de yeni çavuşa aktarılacak/)).toBeVisible();
   const requestPromise = page.waitForRequest((request) => request.method() === 'PATCH' && new URL(request.url()).pathname === '/api/admin/araclar/5');
   await dialog.getByRole('button', { name: 'Kaydet' }).click();
-  expect((await requestPromise).postDataJSON()).toEqual({ plaka: '46 ABC 123', arac_turu: 'kati_atik', cavus_id: 3 });
+  expect((await requestPromise).postDataJSON()).toEqual({ plaka: '46ABC123', arac_turu: 'kati_atik', cavus_id: 3 });
 });
 
 test('araç ekranı ve formu 320–580 px aralığında yatay taşmaz', async ({ page }) => {

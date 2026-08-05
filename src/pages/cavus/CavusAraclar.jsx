@@ -83,7 +83,7 @@ const CavusAraclar = () => {
   };
 
   const handlePlakaChange = (e) => {
-    setPlaka(e.target.value.toUpperCase());
+    setPlaka(e.target.value.replace(/\s+/g, '').toLocaleUpperCase('tr-TR'));
   };
 
   const handleAddArac = async (e) => {
@@ -96,9 +96,7 @@ const CavusAraclar = () => {
       });
     }
     
-    // Turkish Plate Format check: E.g., 46 ABC 123
-    const plateRegex = /^[0-9]{2}\s[A-ZÇĞİÖŞÜ]{1,4}\s[0-9]{2,4}$/;
-    if (!plateRegex.test(plaka)) {
+    if (!plaka.trim()) {
       return setInfoModal({
         isOpen: true,
         title: "Hatalı Plaka Formatı!",
@@ -343,7 +341,7 @@ const CavusAraclar = () => {
             <div className="glass-panel p-4 mb-4">
               <h3 style={{display:'flex', alignItems:'center', gap:'8px'}}><Truck size={20}/> Yeni Araç Ekle</h3>
               <form onSubmit={handleAddArac} className="add-form">
-                <Input label="Plaka" placeholder="Örn: 46 ABC 123" value={plaka} onChange={handlePlakaChange} required />
+                <Input label="Plaka" placeholder="Örn: 46ABC123" value={plaka} onChange={handlePlakaChange} required />
                 
                 <div className="form-group">
                   <label htmlFor="vehicle-type">Araç Görevi / Türü</label>

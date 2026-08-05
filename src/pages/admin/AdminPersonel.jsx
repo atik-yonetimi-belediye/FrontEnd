@@ -45,7 +45,7 @@ function formatPhone(value = '') {
 }
 
 function normalizePhone(value = '') {
-  return value.replace(/\D/g, '');
+  return value.replace(/\D/g, '').slice(0, 11);
 }
 
 function PersonnelForm({ role, record, form, setForm, mahalleler, cavuslar, araclar, soforler, showPassword, setShowPassword }) {
@@ -79,7 +79,7 @@ function PersonnelForm({ role, record, form, setForm, mahalleler, cavuslar, arac
         onChange={(event) => setForm((current) => ({ ...current, telefon: normalizePhone(event.target.value) }))}
         inputMode="tel"
         autoComplete="tel"
-        placeholder="05XX XXX XX XX"
+        placeholder="543 XXX XX XX veya 0543 XXX XX XX"
         required
       />
 
@@ -350,8 +350,8 @@ const AdminPersonel = () => {
   const personName = dialog?.role === 'cavus' ? dialog?.record?.ad_soyad : `${dialog?.record?.ad || ''} ${dialog?.record?.soyad || ''}`.trim();
   const permissionGroups = useMemo(() => [...new Set(permissionItems.map((item) => item.category))], [permissionItems]);
   const formIsValid = dialog?.role === 'cavus'
-    ? Boolean(form.ad_soyad?.trim() && normalizePhone(form.telefon).length === 11 && form.mahalle_id && (dialog.record || form.sifre?.length >= 8))
-    : Boolean(form.ad?.trim() && form.soyad?.trim() && normalizePhone(form.telefon).length === 11 && form.cavus_id && form.arac_id && (dialog?.record || form.sifre?.length >= 8));
+    ? Boolean(form.ad_soyad?.trim() && /^(?:0\d{10}|5\d{9})$/.test(normalizePhone(form.telefon)) && form.mahalle_id && (dialog.record || form.sifre?.length >= 8))
+    : Boolean(form.ad?.trim() && form.soyad?.trim() && /^(?:0\d{10}|5\d{9})$/.test(normalizePhone(form.telefon)) && form.cavus_id && form.arac_id && (dialog?.record || form.sifre?.length >= 8));
 
   return (
     <DashboardLayout title="Personel Yönetim Paneli">

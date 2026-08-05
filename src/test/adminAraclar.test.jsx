@@ -46,7 +46,7 @@ describe('yönetici araç yönetimi', () => {
     await userEvent.type(within(dialog).getByLabelText('Plaka'), '46 xyz 99');
     await userEvent.selectOptions(within(dialog).getByLabelText('Bağlı Çavuş'), '3');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
-    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith('/admin/araclar', { plaka: '46 XYZ 99', arac_turu: 'kati_atik', cavus_id: 3 }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith('/admin/araclar', { plaka: '46XYZ99', arac_turu: 'kati_atik', cavus_id: 3 }));
   });
 
   it('aktif aracı başka çavuşa aktarırken bağlı şoför uyarısını gösterir', async () => {
@@ -58,6 +58,6 @@ describe('yönetici araç yönetimi', () => {
     await userEvent.selectOptions(within(dialog).getByLabelText('Bağlı Çavuş'), '3');
     expect(within(dialog).getByText(/Ahmet Kaya adlı şoför de yeni çavuşa aktarılacak/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
-    await waitFor(() => expect(mocks.patch).toHaveBeenCalledWith('/admin/araclar/5', { plaka: '46 ABC 123', arac_turu: 'kati_atik', cavus_id: 3 }));
+    await waitFor(() => expect(mocks.patch).toHaveBeenCalledWith('/admin/araclar/5', { plaka: '46ABC123', arac_turu: 'kati_atik', cavus_id: 3 }));
   });
 });
