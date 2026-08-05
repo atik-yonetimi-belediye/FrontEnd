@@ -92,14 +92,14 @@ describe('yönetici personel yönetimi', () => {
 
     const dialog = screen.getByRole('dialog');
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Ad Soyad' }), 'Ayşe Demir');
-    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Telefon' }), '05051112233');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Telefon' }), '5431112233');
     await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: 'Sorumlu Mahalle' }), '2');
     await userEvent.type(within(dialog).getByLabelText('İlk Şifre'), 'GucluSifre123');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Kaydet' }));
 
     await waitFor(() => expect(mocks.post).toHaveBeenCalledWith('/admin/cavuslar', {
       ad_soyad: 'Ayşe Demir',
-      telefon: '05051112233',
+      telefon: '5431112233',
       mahalle_id: 2,
       sifre: 'GucluSifre123',
     }));

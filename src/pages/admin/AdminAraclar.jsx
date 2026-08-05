@@ -20,8 +20,8 @@ function VehicleForm({ form, setForm, record, cavuslar }) {
         <input
           autoFocus
           value={form.plaka}
-          onChange={(event) => setForm((current) => ({ ...current, plaka: event.target.value.toLocaleUpperCase('tr-TR') }))}
-          placeholder="46 ABC 123"
+          onChange={(event) => setForm((current) => ({ ...current, plaka: event.target.value.replace(/\s+/g, '').toLocaleUpperCase('tr-TR') }))}
+          placeholder="46ABC123"
           maxLength={20}
         />
       </label>
@@ -129,7 +129,7 @@ export default function AdminAraclar() {
   };
 
   const submitForm = async () => {
-    const payload = { plaka: form.plaka.trim(), arac_turu: form.arac_turu, cavus_id: Number(form.cavus_id) };
+    const payload = { plaka: form.plaka.replace(/\s+/g, ''), arac_turu: form.arac_turu, cavus_id: Number(form.cavus_id) };
     setBusy(true);
     try {
       if (dialog.record) await api.patch(`/admin/araclar/${dialog.record.id}`, payload);
