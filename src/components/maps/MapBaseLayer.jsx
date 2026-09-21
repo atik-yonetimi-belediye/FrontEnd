@@ -14,6 +14,7 @@ export default function MapBaseLayer({ placement = 'top-right' }) {
         key={layerKey}
         attribution={layer.attribution}
         url={layer.url}
+        className={layer.className}
       />
       <MapLayerSwitcher value={layerKey} onChange={setLayerKey} placement={placement} />
     </>

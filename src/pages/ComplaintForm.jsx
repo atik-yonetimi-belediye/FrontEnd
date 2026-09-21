@@ -11,6 +11,7 @@ import api, { getApiErrorMessage } from '../services/api';
 import { fetchAllPages } from '../services/pagination';
 import ComplaintDetailStep from '../components/ComplaintDetailStep';
 import { preparePhotoForUpload } from '../utils/imageProcessing';
+import { MAP_LAYERS } from '../components/maps/mapLayers';
 import 'leaflet/dist/leaflet.css';
 import './ComplaintForm.css';
 
@@ -434,7 +435,7 @@ const ComplaintForm = () => {
 
               <div className="glass-panel" style={{height: '240px', marginBottom: '1rem', overflow: 'hidden', borderRadius: 'var(--radius-md)'}}>
                 <MapContainer center={[37.5858, 36.9145]} zoom={14} style={{ height: '100%', width: '100%' }}>
-                  <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                  <TileLayer url={MAP_LAYERS.street.url} attribution={MAP_LAYERS.street.attribution} />
                   {filteredContainers.map(c => (
                     c.latitude && c.longitude && (
                       <Marker 

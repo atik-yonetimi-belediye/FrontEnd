@@ -8,7 +8,7 @@ const drivers = [{ id: 2, ad_soyad: 'Ahmet Kaya', cavus_id: 1, plaka: '46 ABC 12
 const task = { id: 20, konteyner_id: 5, konteyner_kodu: 'KNT-GOREV-05', tur: 'kati_atik', latitude: 37.5858, longitude: 36.9145, mahalle_ad: 'Haydarbey', cavus_id: 1, cavus_ad_soyad: 'Selin Yılmaz', arac_id: 7, plaka: '46 ABC 123', oncelik: 'yuksek', durum: 'atandi', hedef_tarih: '2026-08-02T17:30:00+03:00', yonetici_notu: 'Öncelikli toplama', gecikti_mi: false };
 
 async function mockTiles(page) {
-  await page.route(/https:\/\/.*(?:basemaps\.cartocdn\.com|arcgisonline\.com)\/.*/, (route) => route.fulfill({ status: 200, contentType: 'image/png', body: tilePng }));
+  await page.route(/https:\/\/.*(?:basemaps\.cartocdn\.com|arcgisonline\.com|tile\.openstreetmap\.org)\/.*/, (route) => route.fulfill({ status: 200, contentType: 'image/png', body: tilePng }));
 }
 
 async function mockAdmin(page) {

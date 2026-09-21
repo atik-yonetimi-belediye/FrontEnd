@@ -9,7 +9,7 @@ vi.mock('react-leaflet', () => ({
 }));
 
 import MapBaseLayer from '../components/maps/MapBaseLayer';
-import { MAP_LAYER_STORAGE_KEY } from '../components/maps/mapLayers';
+import { MAP_LAYER_STORAGE_KEY, MAP_LAYERS } from '../components/maps/mapLayers';
 
 describe('ortak harita katmanı kontrolü', () => {
   beforeEach(() => localStorage.clear());
@@ -25,7 +25,7 @@ describe('ortak harita katmanı kontrolü', () => {
     expect(street).toHaveAttribute('aria-pressed', 'true');
     expect(satellite).toHaveAttribute('aria-pressed', 'false');
     expect(dark).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByTestId('tile-layer').dataset.url).toContain('voyager');
+    expect(screen.getByTestId('tile-layer').dataset.url).toBe(MAP_LAYERS.street.url);
   });
 
   it('katmanı değiştirir ve tercihi sonraki render için saklar', () => {
@@ -46,6 +46,6 @@ describe('ortak harita katmanı kontrolü', () => {
     render(<MapBaseLayer />);
 
     expect(screen.getByRole('button', { name: 'Sokak' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByTestId('tile-layer').dataset.url).toContain('voyager');
+    expect(screen.getByTestId('tile-layer').dataset.url).toBe(MAP_LAYERS.street.url);
   });
 });

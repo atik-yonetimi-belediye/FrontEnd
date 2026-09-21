@@ -22,7 +22,7 @@ const paginated = (items) => ({
 });
 
 async function mockRoleMap(page, role) {
-  await page.route(/https:\/\/.*(?:basemaps\.cartocdn\.com|arcgisonline\.com)\/.*/, (route) => (
+  await page.route(/https:\/\/.*(?:basemaps\.cartocdn\.com|arcgisonline\.com|tile\.openstreetmap\.org)\/.*/, (route) => (
     route.fulfill({ status: 200, contentType: 'image/png', body: tilePng })
   ));
 
